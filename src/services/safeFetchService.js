@@ -1,19 +1,17 @@
 /**
- * Safe fetch wrapper for Electron / Chromium localhost POST requests.
- * Encodes JSON body into a fixed Uint8Array with explicit Content-Length header,
- * preventing Chromium's ChunkedDataPipeUploadDataStream IPC error (Error: -2).
+ * Safe fetch wrapper for Web Browsers, Electron, and Mobile clients.
+ * Safely posts JSON payloads without triggering W3C browser unsafe header restrictions.
  */
 export async function safeFetchPost(url, payload, customHeaders = {}) {
   const jsonString = typeof payload === 'string' ? payload : JSON.stringify(payload);
-  const bodyBytes = new TextEncoder().encode(jsonString);
+  const headers = {
+    'Content-Type': 'application/json',
+    ...customHeaders,
+  };
 
   return fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': bodyBytes.byteLength.toString(),
-      ...customHeaders,
-    },
-    body: bodyBytes,
+    headers,
+    body: jsonString,
   });
 }

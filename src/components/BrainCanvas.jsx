@@ -96,42 +96,46 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     // ═══════════════════════════════════════════════════════════════════
     const singularityGroup = new THREE.Group();
     
-    // Core Icosahedron Wireframe
-    const icoGeo = new THREE.IcosahedronGeometry(0.55, 2);
-    const icoMat = new THREE.LineBasicMaterial({
-      color: cHighHeat,
+    // ── Swirling Cluster of Yellow Core Electrons ───────────────────────
+    const CORE_ELECTRON_COUNT = 64;
+    const coreElectronGeo = new THREE.SphereGeometry(0.028, 8, 8);
+    const coreElectronMat = new THREE.MeshBasicMaterial({
+      color: cGoldAmber, // Golden amber yellow (#fbbf24)
       transparent: true,
-      opacity: 0.90,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
-      depthWrite: false,
     });
-    const icoMesh = new THREE.LineSegments(new THREE.WireframeGeometry(icoGeo), icoMat);
-    singularityGroup.add(icoMesh);
 
-    // Inner Glowing Singularity Sphere
-    const coreSphereGeo = new THREE.SphereGeometry(0.28, 16, 16);
-    const coreSphereMat = new THREE.MeshBasicMaterial({
-      color: cGoldAmber,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-    });
-    const coreSphere = new THREE.Mesh(coreSphereGeo, coreSphereMat);
-    singularityGroup.add(coreSphere);
+    const coreElectronMesh = new THREE.InstancedMesh(coreElectronGeo, coreElectronMat, CORE_ELECTRON_COUNT);
+    const coreDummy = new THREE.Object3D();
+    const coreElectronData = [];
+
+    for (let i = 0; i < CORE_ELECTRON_COUNT; i++) {
+      const r = 0.08 + Math.random() * 0.32;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(1 - 2 * Math.random());
+
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.cos(phi);
+      const z = r * Math.sin(phi) * Math.sin(theta);
+
+      coreDummy.position.set(x, y, z);
+      const scale = 0.6 + Math.random() * 0.8;
+      coreDummy.scale.set(scale, scale, scale);
+      coreDummy.updateMatrix();
+      coreElectronMesh.setMatrixAt(i, coreDummy.matrix);
+
+      coreElectronData.push({ radius: r, theta, phi, speed: 0.01 + Math.random() * 0.03 });
+    }
+    coreElectronMesh.instanceMatrix.needsUpdate = true;
+    singularityGroup.add(coreElectronMesh);
 
     ultronCore.add(singularityGroup);
 
     // ═══════════════════════════════════════════════════════════════════
-    // 1 & 3. GEODESIC NEURAL LATTICE WITH FRESNEL DEPTH-FADING
+    // 1 & 3. GEODESIC NEURAL ELECTRON POSITIONS
     // ═══════════════════════════════════════════════════════════════════
     const baseNodes = [];
-    const linePos   = [];
-    const lineCol   = [];
-
-    const addSeg = (p1, p2, col) => {
-      linePos.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-      lineCol.push(col.r, col.g, col.b, col.r, col.g, col.b);
-    };
 
     const LAYERS = [
       { radius: 0.95, lat: 10, lon: 16, col: cHighHeat,   noise: 0.08 },
@@ -140,10 +144,8 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     ];
 
     LAYERS.forEach(({ radius, lat, lon, col, noise }) => {
-      const layerGrid = [];
       for (let i = 0; i <= lat; i++) {
         const phi = (i / lat) * Math.PI;
-        const row = [];
         for (let j = 0; j <= lon; j++) {
           const theta = (j / lon) * Math.PI * 2;
 
@@ -157,46 +159,18 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
           const z = r * Math.sin(phi) * Math.sin(theta);
 
           const pt = new THREE.Vector3(x, y, z);
-          row.push(pt);
           baseNodes.push({ basePt: pt.clone(), currentPt: pt.clone(), col });
         }
-        layerGrid.push(row);
-      }
-
-      for (let i = 0; i < lat; i++) {
-        for (let j = 0; j < lon; j++) {
-          const p1 = layerGrid[i][j];
-          const p2 = layerGrid[i + 1][j];
-          const p3 = layerGrid[i][j + 1];
-
-          addSeg(p1, p2, col);
-          addSeg(p1, p3, col);
-        }
       }
     });
 
-    // Outer Lattice Line Mesh with Additive Blending & Depth Fading
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
-    lineGeo.setAttribute('color',    new THREE.Float32BufferAttribute(lineCol, 3));
-
-    const lineMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent:  true,
-      opacity:      0.65,
-      blending:     THREE.AdditiveBlending,
-      depthWrite:   false,
-    });
-
-    ultronCore.add(new THREE.LineSegments(lineGeo, lineMat));
-
-    // Instanced Nodes
+    // ── Instanced Joint Electrons (Pure Floating Particle Constellation) ──
     const nodeCount = baseNodes.length;
-    const sphereGeo = new THREE.SphereGeometry(0.018, 6, 6);
+    const sphereGeo = new THREE.SphereGeometry(0.026, 8, 8);
     const sphereMat = new THREE.MeshBasicMaterial({
-      color: 0x00f0ff,
+      color: 0x00ffff,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending,
     });
 
@@ -205,7 +179,7 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
 
     for (let i = 0; i < nodeCount; i++) {
       dummy.position.copy(baseNodes[i].basePt);
-      const scale = 0.5 + Math.random() * 0.6;
+      const scale = 0.7 + Math.random() * 0.8;
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
       nodeMesh.setMatrixAt(i, dummy.matrix);
@@ -258,7 +232,7 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     scene.add(debrisPoints);
 
     // ═══════════════════════════════════════════════════════════════════
-    // 2 & 3. BEADED ORBITAL TRACKS (ECCENTRIC TILTS & COMET TAILS)
+    // 2 & 3. BEADED ORBITAL TRACKS (PURE ELECTRON COMET PARTICLES)
     // ═══════════════════════════════════════════════════════════════════
     const orbitalGroup = new THREE.Group();
 
@@ -274,22 +248,7 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
       const ringGroup = new THREE.Group();
       ringGroup.rotation.set(tiltX, tiltY, 0);
 
-      // Fading Ring Guideline
-      const pts = [];
-      for (let i = 0; i <= 100; i++) {
-        const a = (i / 100) * Math.PI * 2;
-        pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
-      }
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const ringMat = new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.22,
-        blending: THREE.AdditiveBlending,
-      });
-      ringGroup.add(new THREE.Line(ringGeo, ringMat));
-
-      // Comet Tail Particle Trail
+      // Comet Tail Particle Trail (No lines)
       const cometGeo = new THREE.SphereGeometry(0.016, 6, 6);
       const cometMesh = new THREE.InstancedMesh(
         cometGeo,
@@ -341,12 +300,28 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
         });
       }
 
-      // ── Quantum Singularity Breathing ───────────────────────────────
+      // ── Quantum Singularity Breathing & Yellow Electron Swirl ──────────
       const breatheScale = 1.0 + Math.sin(t * 2.2) * 0.12;
       singularityGroup.scale.set(breatheScale, breatheScale, breatheScale);
       singularityGroup.position.z = Math.sin(t * 1.5) * 0.10;
-      icoMesh.rotation.y = t * 0.35;
-      icoMesh.rotation.x = t * 0.20;
+      singularityGroup.rotation.y = t * 0.35;
+
+      for (let i = 0; i < CORE_ELECTRON_COUNT; i++) {
+        const d = coreElectronData[i];
+        d.theta += d.speed;
+        d.phi += d.speed * 0.4;
+
+        const cx = d.radius * Math.sin(d.phi) * Math.cos(d.theta);
+        const cy = d.radius * Math.cos(d.phi);
+        const cz = d.radius * Math.sin(d.phi) * Math.sin(d.theta);
+
+        coreDummy.position.set(cx, cy, cz);
+        const pulse = 0.75 + Math.sin(t * 5.0 + i) * 0.35;
+        coreDummy.scale.set(pulse, pulse, pulse);
+        coreDummy.updateMatrix();
+        coreElectronMesh.setMatrixAt(i, coreDummy.matrix);
+      }
+      coreElectronMesh.instanceMatrix.needsUpdate = true;
 
       // ── Wave Pulse Shockwave Disruption ───────────────────────────────
       const elapsedSinceShock = (Date.now() - shockwaveTrigger) / 1000;
@@ -354,9 +329,6 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
       const shockRadius        = elapsedSinceShock * 2.8;
 
       // Update Geodesic Node Positions
-      const positions = lineGeo.attributes.position.array;
-      let posIdx = 0;
-
       for (let i = 0; i < nodeCount; i++) {
         const node = baseNodes[i];
         const pt   = node.basePt.clone();
@@ -370,7 +342,10 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
           }
         }
 
+        // Electron Pulse & Orbital Wobble at Joints
+        const pulse = 0.85 + Math.sin(t * 4.0 + i * 0.35) * 0.35;
         dummy.position.copy(pt);
+        dummy.scale.set(pulse, pulse, pulse);
         dummy.updateMatrix();
         nodeMesh.setMatrixAt(i, dummy.matrix);
       }
@@ -428,10 +403,8 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
       window.removeEventListener('click', triggerShockwave);
       controls.dispose();
       ro.disconnect();
-      lineGeo.dispose(); lineMat.dispose();
       sphereGeo.dispose(); sphereMat.dispose();
-      icoGeo.dispose(); icoMat.dispose();
-      coreSphereGeo.dispose(); coreSphereMat.dispose();
+      coreElectronGeo.dispose(); coreElectronMat.dispose();
       debrisGeo.dispose(); debrisMat.dispose();
       renderer.dispose();
       if (renderer.domElement && container.contains(renderer.domElement))

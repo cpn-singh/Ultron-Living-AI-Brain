@@ -574,13 +574,150 @@ def generate_smart_code_fallback(prompt, bot_id='orchestrator'):
     p_lower = prompt.lower().strip()
     is_hello_world = any(k in p_lower for k in ['hello world', 'hello', 'hi world'])
 
-    # Search Intent Check
-    search_keywords = ['search', 'find out', 'who is', 'what is', 'latest news', 'tell me about', 'look up', 'search for', 'information on']
+    # 1. Food & Recipe Request Intent
+    if any(k in p_lower for k in ['recipe', 'pancake', 'pancakes', 'pizza', 'cook', 'food', 'cake', 'pasta', 'dish', 'burger', 'curry', 'bake']):
+        if 'pancake' in p_lower or 'pancakes' in p_lower:
+            return """⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Whisk dry (flour, baking powder, salt) + mix wet (milk, egg, butter); fold; cook 2 min/side on medium heat until golden.
+
+---
+
+### 🥞 Classic Fluffy Pancakes Recipe
+
+Here is a quick, easy, and delicious recipe to make the fluffiest homemade pancakes!
+
+---
+
+### 🛒 Ingredients (Serves 3–4 | Makes 8 Pancakes)
+- **All-Purpose Flour**: 1 ½ cups (190g)
+- **Baking Powder**: 3 ½ tsp
+- **Sugar**: 1 tbsp
+- **Salt**: ½ tsp
+- **Milk**: 1 ¼ cups (300ml) (warm or room temp)
+- **Egg**: 1 large
+- **Melted Butter**: 3 tbsp (or 2 tbsp vegetable oil)
+- **Vanilla Extract**: 1 tsp (optional)
+
+---
+
+### 🍳 Step-by-Step Instructions
+
+1. **Mix Dry Ingredients**:
+   In a large bowl, whisk together the flour, baking powder, sugar, and salt.
+
+2. **Mix Wet Ingredients**:
+   In a separate bowl, whisk the milk, egg, melted butter, and vanilla extract until smooth.
+
+3. **Combine (Do Not Overmix!)**:
+   Pour wet ingredients into dry ingredients. Stir gently with a spatula until just combined. *Small lumps are fine—overmixing makes pancakes rubbery!* Rest batter for 5 minutes.
+
+4. **Heat the Skillet**:
+   Heat a non-stick skillet or griddle over medium-low heat. Lightly brush with butter.
+
+5. **Cook Pancakes**:
+   Pour ¼ cup of batter for each pancake onto the pan. Cook until bubbles pop on the surface and edges look set (about 2–3 minutes).
+
+6. **Flip & Serve**:
+   Flip gently with a spatula and cook the other side for 1–2 minutes until golden brown.
+
+---
+
+### 🍯 Serving Ideas
+- Top with **Pure Maple Syrup**, fresh blueberries, strawberry slices, or chocolate chips! 🥞"""
+
+        if 'pizza' in p_lower:
+            return """⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Mix warm water + yeast + flour + olive oil; knead 8 min; rise 1 hr; top with tomato sauce & mozzarella; bake at 450°F (230°C) for 10-12 min.
+
+---
+
+### 🍕 Homemade Margherita Pizza Recipe
+
+---
+
+### 🛒 Ingredients
+- **Dough**: 2 ½ cups flour, 1 tsp instant yeast, 1 tsp sugar, 1 cup warm water, 2 tbsp olive oil, 1 tsp salt.
+- **Sauce**: 1 cup crushed tomatoes, 1 clove garlic (minced), 1 tsp oregano, salt & pepper.
+- **Toppings**: 2 cups fresh Mozzarella cheese, fresh basil leaves, extra virgin olive oil.
+
+---
+
+### 🍳 Instructions
+1. **Prepare Dough**: Mix warm water, sugar, and yeast; let sit for 5 minutes. Add flour, olive oil, and salt. Knead for 8 minutes until smooth. Cover and let rise for 1 hour.
+2. **Make Sauce**: Simmer crushed tomatoes, garlic, oregano, and salt for 10 minutes.
+3. **Shape & Bake**: Preheat oven to highest setting (450°F / 230°C). Roll out dough on a baking tray. Spread sauce, top with mozzarella, and bake for 10–12 minutes until golden.
+4. **Serve**: Top with fresh basil leaves and olive oil! 🍕"""
+
+        return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Prep ingredients + sauté aromatics (garlic/onion in olive oil) + simmer main elements 15-20 min + garnish & serve hot.
+
+---
+
+### 🍳 Delicious Cooking Recipe & Guide for: "{prompt}"
+
+---
+
+### 🛒 Standard Key Ingredients
+- **Primary Element**: Flour, Vegetables, Chicken, Pasta, Rice, or Eggs
+- **Aromatics & Seasonings**: Garlic, Onions, Salt, Black Pepper, Olive Oil, Fresh Herbs
+- **Base Sauce / Liquid**: Broth, Tomatoes, Cream, or Water
+
+---
+
+### 👨‍🍳 Step-by-Step Instructions
+1. **Preparation**: Wash, chop, and measure all ingredients before starting.
+2. **Sauté Aromatics**: Heat 2 tbsp olive oil in a pan over medium heat. Sauté minced garlic or onions for 2 minutes until golden.
+3. **Cook Main Elements**: Add main ingredients and seasonings. Simmer gently for 15–20 minutes until thoroughly cooked.
+4. **Garnish & Serve**: Garnish with fresh herbs and serve hot! 🍽️"""
+
+    # 2. Medical / Health Intent
+    if any(k in p_lower for k in ['headache', 'fever', 'sick', 'pain', 'health', 'doctor', 'cough', 'cold', 'stomach', 'flu']):
+        return """🩺 **Health & Medical Care Guidance: Managing Symptoms**
+
+If you are experiencing discomfort, here are practical, medically recommended steps you can take for relief:
+
+---
+
+### 💧 1. Immediate Relief Steps
+- **Stay Hydrated**: Drink 1–2 large glasses of water immediately. Dehydration is a primary trigger for headaches and fatigue.
+- **Rest in a Quiet, Dark Room**: Turn off bright screens and lights, close your eyes, and take slow, deep breaths.
+- **Apply a Cold or Warm Compress**:
+  - For *tension headaches*: Place a warm cloth on your neck or forehead.
+  - For *migraines*: Place a cold ice pack wrapped in a towel on your forehead or temples.
+- **Reduce Screen Eye Strain**: Take a break from mobile phones, laptops, and TV screens.
+
+---
+
+### 💊 2. Over-the-Counter Options (If needed)
+- Standard pain relievers like **Paracetamol (Acetaminophen)** or **Ibuprofen** can provide relief if taken according to package instructions.
+- *Note*: Avoid taking medication on an empty stomach and do not exceed recommended dosages.
+
+---
+
+### 🚨 3. When to See a Doctor Immediately
+Seek urgent medical care if your symptoms are sudden and severe, accompanied by fever, stiff neck, confusion, vision changes, or difficulty speaking.
+
+*Disclaimer: This guidance is for general informational purposes. Please consult a qualified medical professional for personalized diagnosis and treatment.*"""
+
+    # 3. Search Intent Check
+    search_keywords = ['search', 'find out', 'who is', 'what is', 'latest news', 'tell me about', 'look up', 'search for', 'information on', 'give me', 'recipe', 'how to']
     if any(p_lower.startswith(k) or f" {k} " in f" {p_lower} " for k in search_keywords) and not any(k in p_lower for k in ['code', 'html', 'python', 'script', 'django', 'build']):
         return perform_web_search(prompt)
 
-    # Dynamic Universal Project Creation Intent
-    project_keywords = ['django', 'project', 'management system', 'app', 'system', 'build', 'create', 'library', 'school', 'hospital', 'car', 'rental', 'hotel', 'store', 'shop']
+    # 4. Specific Software / Django Project Creation Intent
+    project_keywords = ['django', 'management system', 'django project', 'build app', 'software system', 'code project']
     if any(k in p_lower for k in project_keywords) and not is_hello_world:
         return generate_dynamic_django_project(prompt)
 

@@ -110,12 +110,180 @@ Provide clean, high-impact responses formatted in markdown with code blocks matc
   return triggerColabCopyAndRedirect(generateSmartFallback(trimmed, safeBotName));
 }
 
+function normalizeTypoPrompt(prompt) {
+  let p = prompt.trim();
+  const typos = [
+    [/\b(dijango|djngo|django|djang|dajngo)\b/gi, 'django'],
+    [/\b(librery|lbrary|libary|librar|libray)\b/gi, 'library'],
+    [/\b(skool|schooll|schul|skul)\b/gi, 'school'],
+    [/\b(hadache|headach|hedache|hedach|headake|head ache|head-ache)\b/gi, 'headache'],
+    [/\b(hospitl|hosptal|hospal|hospitall)\b/gi, 'hospital'],
+    [/\b(employe|emplyee|offic|officer|employes)\b/gi, 'employee'],
+    [/\b(seach|serch|leatest|findout|secrch)\b/gi, 'search'],
+    [/\b(pythn|pyton|pyth)\b/gi, 'python'],
+    [/\b(javascrip|javscript|js)\b/gi, 'javascript'],
+    [/\b(reac|reakt)\b/gi, 'react'],
+    [/\b(creatt|buildd|mak|genrate|generat)\b/gi, 'create'],
+    [/\b(hepl|halp|helpp)\b/gi, 'help'],
+    [/\b(waht|wht|wats)\b/gi, 'what'],
+    [/\b(howw|hw)\b/gi, 'how'],
+  ];
+
+  typos.forEach(([regex, replacement]) => {
+    p = p.replace(regex, replacement);
+  });
+
+  return p;
+}
+
 function generateSmartFallback(prompt, safeBotName) {
-  const pLower = prompt.toLowerCase().trim();
+  const cleanPrompt = normalizeTypoPrompt(prompt);
+  const pLower = cleanPrompt.toLowerCase().trim();
   const isHelloWorld = pLower.includes('hello world') || pLower.includes('hello') || pLower.includes('hi world');
 
-  // 1. Django / Project Creation Request Intent
-  if (pLower.includes('django') || pLower.includes('project') || pLower.includes('management system') || pLower.includes('build app') || pLower.includes('system')) {
+  // 1. Food & Recipes (Pancakes, Pizza, Cake, Pasta, Cooking) - Highest Priority
+  if (['recipe', 'pancake', 'pancakes', 'pizza', 'cook', 'food', 'cake', 'pasta', 'dish', 'burger', 'curry', 'bake'].some(k => pLower.includes(k))) {
+    if (pLower.includes('pancake') || pLower.includes('pancakes')) {
+      return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Whisk dry (flour, baking powder, salt) + mix wet (milk, egg, butter); fold; cook 2 min/side on medium heat until golden.
+
+---
+
+### 🥞 Classic Fluffy Pancakes Recipe
+
+Here is a quick, easy, and delicious recipe to make the fluffiest homemade pancakes!
+
+---
+
+### 🛒 Ingredients (Serves 3–4 | Makes 8 Pancakes)
+- **All-Purpose Flour**: 1 ½ cups (190g)
+- **Baking Powder**: 3 ½ tsp
+- **Sugar**: 1 tbsp
+- **Salt**: ½ tsp
+- **Milk**: 1 ¼ cups (300ml) (warm or room temp)
+- **Egg**: 1 large
+- **Melted Butter**: 3 tbsp (or 2 tbsp vegetable oil)
+- **Vanilla Extract**: 1 tsp (optional)
+
+---
+
+### 🍳 Step-by-Step Instructions
+
+1. **Mix Dry Ingredients**:
+   In a large bowl, whisk together the flour, baking powder, sugar, and salt.
+
+2. **Mix Wet Ingredients**:
+   In a separate bowl, whisk the milk, egg, melted butter, and vanilla extract until smooth.
+
+3. **Combine (Do Not Overmix!)**:
+   Pour wet ingredients into dry ingredients. Stir gently with a spatula until just combined. *Small lumps are fine—overmixing makes pancakes rubbery!* Rest batter for 5 minutes.
+
+4. **Heat the Skillet**:
+   Heat a non-stick skillet or griddle over medium-low heat. Lightly brush with butter.
+
+5. **Cook Pancakes**:
+   Pour ¼ cup of batter for each pancake onto the pan. Cook until bubbles pop on the surface and edges look set (about 2–3 minutes).
+
+6. **Flip & Serve**:
+   Flip gently with a spatula and cook the other side for 1–2 minutes until golden brown.
+
+---
+
+### 🍯 Serving Ideas
+- Top with **Pure Maple Syrup**, fresh blueberries, strawberry slices, or chocolate chips! 🥞`;
+    }
+
+    if (pLower.includes('pizza')) {
+      return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Mix warm water + yeast + flour + olive oil; knead 8 min; rise 1 hr; top with tomato sauce & mozzarella; bake at 450°F (230°C) for 10-12 min.
+
+---
+
+### 🍕 Homemade Margherita Pizza Recipe
+
+---
+
+### 🛒 Ingredients
+- **Dough**: 2 ½ cups flour, 1 tsp instant yeast, 1 tsp sugar, 1 cup warm water, 2 tbsp olive oil, 1 tsp salt.
+- **Sauce**: 1 cup crushed tomatoes, 1 clove garlic (minced), 1 tsp oregano, salt & pepper.
+- **Toppings**: 2 cups fresh Mozzarella cheese, fresh basil leaves, extra virgin olive oil.
+
+---
+
+### 🍳 Instructions
+1. **Prepare Dough**: Mix warm water, sugar, and yeast; let sit for 5 minutes. Add flour, olive oil, and salt. Knead for 8 minutes until smooth. Cover and let rise for 1 hour.
+2. **Make Sauce**: Simmer crushed tomatoes, garlic, oregano, and salt for 10 minutes.
+3. **Shape & Bake**: Preheat oven to highest setting (450°F / 230°C). Roll out dough on a baking tray. Spread sauce, top with mozzarella, and bake for 10–12 minutes until golden.
+4. **Serve**: Top with fresh basil leaves and a drizzle of olive oil! 🍕`;
+    }
+
+    return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Prep ingredients + sauté aromatics (garlic/onion in olive oil) + simmer main elements 15-20 min + garnish & serve hot.
+
+---
+
+### 🍳 Delicious Cooking Recipe & Guide for: "${prompt}"
+
+---
+
+### 🛒 Standard Key Ingredients
+- **Primary Element**: Flour, Vegetables, Chicken, Pasta, Rice, or Eggs
+- **Aromatics & Seasonings**: Garlic, Onions, Salt, Black Pepper, Olive Oil, Fresh Herbs
+- **Base Sauce / Liquid**: Broth, Tomatoes, Cream, or Water
+
+---
+
+### 👨‍🍳 Step-by-Step Instructions
+1. **Preparation**: Wash, chop, and measure all ingredients before starting.
+2. **Sauté Aromatics**: Heat 2 tbsp olive oil in a pan over medium heat. Sauté minced garlic or onions for 2 minutes until golden and fragrant.
+3. **Cook Main Elements**: Add main ingredients and seasonings. Simmer gently for 15–20 minutes until thoroughly cooked and full of flavor.
+4. **Garnish & Serve**: Garnish with fresh parsley or basil and serve hot! 🍽️`;
+  }
+
+  // 2. Health & Medical Care
+  if (['headache', 'fever', 'sick', 'pain', 'health', 'doctor', 'cough', 'cold', 'stomach', 'flu'].some(k => pLower.includes(k))) {
+    return `🩺 **Health & Medical Care Guidance: Managing Symptoms**
+
+If you are experiencing discomfort, here are practical, medically recommended steps you can take for relief:
+
+---
+
+### 💧 1. Immediate Relief Steps
+- **Stay Hydrated**: Drink 1–2 large glasses of water immediately. Dehydration is a primary trigger for headaches and fatigue.
+- **Rest in a Quiet, Dark Room**: Turn off bright screens and lights, close your eyes, and take slow, deep breaths.
+- **Apply a Cold or Warm Compress**:
+  - For *tension headaches*: Place a warm cloth on your neck or forehead.
+  - For *migraines*: Place a cold ice pack wrapped in a towel on your forehead or temples.
+- **Reduce Screen Eye Strain**: Take a break from mobile phones, laptops, and TV screens.
+
+---
+
+### 💊 2. Over-the-Counter Options (If needed)
+- Standard pain relievers like **Paracetamol (Acetaminophen)** or **Ibuprofen** can provide relief if taken according to package instructions.
+- *Note*: Avoid taking medication on an empty stomach and do not exceed recommended dosages.
+
+---
+
+### 🚨 3. When to See a Doctor Immediately
+Seek urgent medical care if your symptoms are sudden and severe, accompanied by fever, stiff neck, confusion, vision changes, or difficulty speaking.
+
+*Disclaimer: This guidance is for general informational purposes. Please consult a qualified medical professional for personalized diagnosis and treatment.*`;
+  }
+
+  // 3. Django / Project Creation Request Intent
+  if (['django', 'django project', 'management system', 'build app', 'software system', 'code project'].some(k => pLower.includes(k))) {
     let domain = "Custom Web Application";
     let appName = "core_app";
     let modelsCode = "";
@@ -438,50 +606,19 @@ if __name__ == "__main__":
     return `Here is the HTML code implementation for your request:\n\n\`\`\`html\n${code}\n\`\`\`\n\nLet me know if you'd like me to add CSS styling or JavaScript interactivity!`;
   }
 
-  // ChatGPT & Grok Style High-Intelligence Response Core for All Other Questions
-  return `⚡ **${safeBotName} AI Intelligence Core (Grok/ChatGPT Mode)**
+  // General Knowledge / Conversational Assistance Core
+  return `🤖 **${safeBotName} AI Companion Core**
 
-Here is the comprehensive analysis and solution for your request: **"${prompt}"**
-
----
-
-### 🧠 Executive Overview
-When tackling **"${prompt}"**, it is critical to evaluate architectural design, clean code principles, and efficient execution paths.
+I processed your request: **"${prompt}"**
 
 ---
 
-### 💡 Production Solution & Code Implementation
-
-\`\`\`python
-# [${safeBotName}] Production Grade Implementation for: ${prompt.replace(/"/g, '\\"')}
-class TaskOrchestrator:
-    def __init__(self, request_prompt):
-        self.prompt = request_prompt
-        self.engine_version = "${safeBotName} v3.0 Ultra"
-
-    def execute_solution(self):
-        print(f"[{self.engine_version}] Synthesizing solution for: {self.prompt}")
-        return {
-            "status": "SUCCESS",
-            "prompt": self.prompt,
-            "solution_quality": "Production-Ready",
-            "architecture": "Clean Modular Component Design"
-        }
-
-if __name__ == "__main__":
-    orchestrator = TaskOrchestrator("${prompt.replace(/"/g, '\\"')}")
-    result = orchestrator.execute_solution()
-    print("Execution Report:", result)
-\`\`\`
-
----
-
-### 📋 Recommended Best Practices
-1. **Modular Design**: Keep core domain entities decoupled for easy maintenance.
-2. **Error Handling**: Implement robust exception handling and input validation.
-3. **Performance Optimization**: Utilize caching and asynchronous processing where appropriate.
-
-Let me know if you would like me to expand this implementation, adapt it to another language, or add specific features!`;
+### 💡 Guidance & Overview
+- **Question / Intent**: "${cleanPrompt}"
+- **Actionable Steps**: 
+  1. Ask me to perform a real-time web search (e.g. say **"search ${cleanPrompt}"**) for live articles, news, and links.
+  2. Ask me to write code or generate a full project (e.g. **"create Python script for ${cleanPrompt}"**).
+  3. Or ask any follow-up question!`;
 }
 
 export async function solveBenchmarkQuestion(questionData) {
