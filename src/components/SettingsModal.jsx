@@ -26,7 +26,7 @@ export default function SettingsModal({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 pt-14 animate-in fade-in duration-200">
       <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative flex flex-col gap-4 border border-rose-900/60 max-h-[90vh] overflow-y-auto bg-zinc-950/95 shadow-2xl">
         <button
           onClick={onClose}

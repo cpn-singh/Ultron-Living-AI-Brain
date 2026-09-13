@@ -51,7 +51,7 @@ export default function BenchmarkPanel({ isOpen, onClose, onTriggerBrainPulse })
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 pt-14">
       <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden">
         
         {/* Header Bar */}

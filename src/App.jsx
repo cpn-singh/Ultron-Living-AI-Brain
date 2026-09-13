@@ -25,6 +25,12 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speechTriggerText, setSpeechTriggerText] = useState(null);
 
+  React.useEffect(() => {
+    const handleToggle = () => setSidebarOpen(prev => !prev);
+    window.addEventListener('toggle-fleet-sidebar', handleToggle);
+    return () => window.removeEventListener('toggle-fleet-sidebar', handleToggle);
+  }, []);
+
   const handleSpeechResult = (text) => {
     if (text && text.trim()) {
       setSpeechTriggerText({ text: text.trim(), ts: Date.now() });
@@ -60,7 +66,9 @@ export default function App() {
 
       {/* Floating 3D Brain Navigation Controls Toolbar (Bottom Left) */}
       <div
-        className="fixed bottom-24 sm:bottom-6 left-4 sm:left-6 z-30 pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-2xl glass-panel bg-slate-950/85 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.75)] select-none"
+        className={`fixed bottom-24 sm:bottom-6 left-4 sm:left-6 z-30 pointer-events-auto items-center gap-1.5 p-1.5 rounded-2xl glass-panel bg-slate-950/85 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.75)] select-none ${
+          activeTab === 'chat' ? 'hidden sm:flex' : 'flex'
+        }`}
         role="toolbar"
         aria-label="3D Brain Navigation Controls"
       >
@@ -137,7 +145,7 @@ export default function App() {
             className="fixed inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative w-80 max-w-[85vw] h-full p-4 flex flex-col gap-4 border-r border-white/10 bg-slate-950/95 backdrop-blur-2xl z-10 overflow-y-auto shadow-2xl">
+          <aside className="relative w-80 max-w-[85vw] h-full p-4 pt-14 flex flex-col gap-4 border-r border-white/10 bg-slate-950/95 backdrop-blur-2xl z-10 overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono">
                 11-Bot Fleet Selector
@@ -161,12 +169,12 @@ export default function App() {
       )}
 
       {/* Main Container */}
-      <main className="relative z-10 flex-1 flex overflow-hidden p-2 sm:p-4 gap-4 pointer-events-none">
+      <main className="relative z-10 flex-1 flex overflow-hidden pt-3 sm:pt-4 p-2 sm:p-4 gap-4 pointer-events-none">
         {/* Modal Floating Panels for Swarm / Memory / RAG / Files / Benchmark Tabs */}
         {activeTab !== 'chat' && (
           <section className="flex-1 h-full max-w-4xl mx-auto overflow-hidden pointer-events-auto z-20">
             {activeTab === 'swarm' && (
-              <SwarmPanel activeAgent={activeAgent} preset={swarmPreset} />
+              <SwarmPanel activeAgent={activeAgent} preset={swarmPreset} onClose={() => setActiveTab(null)} />
             )}
             {activeTab === 'memory' && <MemoryPanel />}
             {activeTab === 'knowledge' && <KnowledgeBasePanel />}
@@ -199,7 +207,7 @@ export default function App() {
       />
 
       {/* Floating Microphone Action Button & Equalizer Overlay */}
-      <VoiceOverlay onSpeechResult={handleSpeechResult} />
+      <VoiceOverlay activeTab={activeTab} onSpeechResult={handleSpeechResult} />
 
       {/* Settings & Auth Modals */}
       {showSettings && (

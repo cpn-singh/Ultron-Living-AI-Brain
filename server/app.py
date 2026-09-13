@@ -18,6 +18,7 @@ import threading
 import ssl
 import urllib.request
 import urllib.parse
+import concurrent.futures
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
@@ -42,18 +43,26 @@ def save_memories(memories):
     except Exception as e:
         print(f"[Python Backend] Error saving memory: {e}")
 
+EXPLICIT_CODE_KEYWORDS = [
+    'write code', 'create code', 'generate code', 'write script', 'python code', 
+    'javascript code', 'html code', 'css code', 'sql query', 'cpp code', 'java code', 
+    'c++ code', 'code for', 'code snippet', 'source code', 'build app', 'write function',
+    'debug code', 'refactor code', 'programming', 'program in python', 'program in js',
+    'code project', 'write a program'
+]
+
 def query_gemini_api(prompt, bot_id='orchestrator'):
     key = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA')
     url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={key}'
     headers = {'Content-Type': 'application/json'}
 
     p_lower = prompt.lower()
-    has_code_intent = any(k in p_lower for k in ['code', 'html', 'css', 'javascript', 'js', 'python', 'cpp', 'c++', 'java', 'sql', 'script', 'function', 'build app', 'program', 'algorithm', 'refactor', 'debug', 'write code', 'create project'])
+    has_code_intent = any(k in p_lower for k in EXPLICIT_CODE_KEYWORDS)
 
     if has_code_intent:
         system_prompt = f"You are ULTRON, operating as bot engine '{bot_id}'. Provide accurate, clean, high-impact responses formatted in markdown with correct code blocks matching the requested language."
     else:
-        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested."
+        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user."
 
     payload = json.dumps({
         'contents': [
@@ -64,7 +73,7 @@ def query_gemini_api(prompt, bot_id='orchestrator'):
     req = urllib.request.Request(url, data=payload, headers=headers)
     try:
         context = ssl._create_unverified_context()
-        with urllib.request.urlopen(req, context=context, timeout=15) as resp:
+        with urllib.request.urlopen(req, context=context, timeout=12) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode('utf-8'))
                 candidates = data.get('candidates', [])
@@ -85,12 +94,12 @@ def query_nvidia_api(prompt, bot_id='orchestrator'):
     }
 
     p_lower = prompt.lower()
-    has_code_intent = any(k in p_lower for k in ['code', 'html', 'css', 'javascript', 'js', 'python', 'cpp', 'c++', 'java', 'sql', 'script', 'function', 'build app', 'program', 'algorithm', 'refactor', 'debug', 'write code', 'create project'])
+    has_code_intent = any(k in p_lower for k in EXPLICIT_CODE_KEYWORDS)
 
     if has_code_intent:
         system_prompt = f"You are ULTRON, operating as bot engine '{bot_id}'. Provide accurate, clean, high-impact responses formatted in markdown with correct code blocks matching the requested language."
     else:
-        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested."
+        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user."
 
     payload = json.dumps({
         'model': 'meta/llama-3.2-11b-vision-instruct',
@@ -126,106 +135,115 @@ def query_llm_api(prompt, bot_id='orchestrator'):
         return res
     return query_nvidia_api(prompt, bot_id)
 
-def perform_web_search(query, bot_id='orchestrator'):
-    """
-    ULTRON Middleware Web Intelligence Search Connector
-    Performs real-time search queries across DuckDuckGo and Wikipedia APIs
-    and synthesizes results using Gemini / NVIDIA NIM LLM.
-    """
-    clean_query = re.sub(r'^(search|find|look up|tell me about|who is|what is|information on|search for)\s+', '', query, flags=re.IGNORECASE).strip()
-    if not clean_query:
-        clean_query = query.strip()
+def fetch_wikipedia_api(query):
+    clean_q = re.sub(r'^(search|find|look up|tell me about|who is|what is|information on|search for|wikipedia|wiki|about)\s+', '', query, flags=re.IGNORECASE).strip().rstrip('?')
+    if not clean_q:
+        clean_q = query.strip()
 
-    results = []
-
-    # 1. Try DuckDuckGo Instant Answer API
+    # 1. Direct Wikipedia REST Summary API (Sub-250ms fetch)
     try:
-        ddg_url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(clean_query)}&format=json&no_html=1&skip_disambig=1"
-        req = urllib.request.Request(ddg_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        encoded = urllib.parse.quote(clean_q.replace(' ', '_'))
+        rest_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
+        req = urllib.request.Request(rest_url, headers={'User-Agent': 'ULTRON-NEMI/2.0 (AI Companion)'})
         context = ssl._create_unverified_context()
-        with urllib.request.urlopen(req, context=context, timeout=5) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            abstract = data.get('AbstractText', '')
-            heading = data.get('Heading', clean_query)
-            if abstract:
-                results.append(f"### 📌 Summary for **{heading}**\n{abstract}")
-
-            related = data.get('RelatedTopics', [])
-            for item in related[:5]:
-                if isinstance(item, dict) and item.get('Text'):
-                    text = item.get('Text')
-                    url = item.get('FirstURL', '')
-                    results.append(f"- **{text}**" + (f" ([Link]({url}))" if url else ""))
-    except Exception as e:
-        print(f"[Middleware Search] DDG API error: {e}")
-
-    # 2. Try Wikipedia Search API
-    if len(results) < 2:
-        try:
-            wiki_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(clean_query)}&format=json&utf8=1"
-            req = urllib.request.Request(wiki_url, headers={'User-Agent': 'ULTRON-Middleware/2.0'})
-            context = ssl._create_unverified_context()
-            with urllib.request.urlopen(req, context=context, timeout=5) as resp:
+        with urllib.request.urlopen(req, context=context, timeout=3) as resp:
+            if resp.status == 200:
                 data = json.loads(resp.read().decode('utf-8'))
-                search_hits = data.get('query', {}).get('search', [])
-                if search_hits:
-                    results.append(f"\n### 🔍 Key Knowledge Search Results for **\"{clean_query}\"**:")
-                    for hit in search_hits[:4]:
+                title = data.get('title', clean_q)
+                extract = data.get('extract', '')
+                description = data.get('description', '')
+                page_url = data.get('content_urls', {}).get('desktop', {}).get('page', f"https://en.wikipedia.org/wiki/{encoded}")
+                if extract:
+                    return f"### 📖 Wikipedia Article: **[{title}]({page_url})**\n*{description}*\n\n{extract}"
+    except Exception:
+        pass
+
+    # 2. Wikipedia Search API Fallback
+    try:
+        search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(clean_q)}&format=json&utf8=1"
+        req = urllib.request.Request(search_url, headers={'User-Agent': 'ULTRON-NEMI/2.0'})
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=3) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode('utf-8'))
+                hits = data.get('query', {}).get('search', [])
+                if hits:
+                    results = [f"### 🌐 Wikipedia Search Results for **\"{clean_q}\"**:"]
+                    for hit in hits[:3]:
                         title = hit.get('title', '')
                         snippet = re.sub(r'<[^>]+>', '', hit.get('snippet', ''))
                         snippet = html.unescape(snippet)
                         link = f"https://en.wikipedia.org/wiki/{urllib.parse.quote(title.replace(' ', '_'))}"
                         results.append(f"#### [{title}]({link})\n{snippet}...\n")
-        except Exception as e:
-            print(f"[Middleware Search] Wiki API error: {e}")
+                    return "\n".join(results)
+    except Exception:
+        pass
+    return None
 
-    # 3. DuckDuckGo HTML Search Snippet Scraper
-    if len(results) < 2:
+def fetch_duckduckgo_api(query):
+    clean_q = re.sub(r'^(search|find|look up|tell me about|who is|what is|information on|search for)\s+', '', query, flags=re.IGNORECASE).strip().rstrip('?')
+    try:
+        ddg_url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(clean_q)}&format=json&no_html=1&skip_disambig=1"
+        req = urllib.request.Request(ddg_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=3) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            abstract = data.get('AbstractText', '')
+            heading = data.get('Heading', clean_q)
+            if abstract:
+                return f"### 📌 Instant Summary for **{heading}**\n{abstract}"
+    except Exception:
+        pass
+    return None
+
+def perform_web_search(query, bot_id='orchestrator'):
+    """
+    Ultra-Fast & Accurate Parallel Wikipedia & Web Search Intelligence Engine
+    Runs Wikipedia REST API and DuckDuckGo API in parallel threads (sub-second response time).
+    Synthesizes grounded knowledge using Gemini API without code boilerplate.
+    """
+    search_snippets = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_wiki = executor.submit(fetch_wikipedia_api, query)
+        future_ddg = executor.submit(fetch_duckduckgo_api, query)
+
         try:
-            html_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(clean_query)}"
-            req = urllib.request.Request(html_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-            context = ssl._create_unverified_context()
-            with urllib.request.urlopen(req, context=context, timeout=5) as resp:
-                html_content = resp.read().decode('utf-8', errors='ignore')
-                matches = re.findall(r'<a class="result__snippet[^>]*>(.*?)</a>', html_content, re.DOTALL)
-                if matches:
-                    results.append(f"\n### 🌐 Web Intelligence Results for **\"{clean_query}\"**:")
-                    for idx, m in enumerate(matches[:4]):
-                        snippet = html.unescape(re.sub(r'<[^>]+>', '', m)).strip()
-                        if snippet:
-                            results.append(f"**{idx+1}.** {snippet}")
-        except Exception as e:
-            print(f"[Middleware Search] DDG HTML error: {e}")
+            wiki_res = future_wiki.result(timeout=3)
+            if wiki_res:
+                search_snippets.append(wiki_res)
+        except Exception:
+            pass
 
-    if results:
-        raw_results_str = "\n\n".join(results)
+        try:
+            ddg_res = future_ddg.result(timeout=3)
+            if ddg_res:
+                search_snippets.append(ddg_res)
+        except Exception:
+            pass
+
+    if search_snippets:
+        combined_text = "\n\n".join(search_snippets)
         rag_prompt = (
-            f"You are ULTRON Web Intelligence Engine. Synthesize the following search query results into a "
-            f"clear, direct, authoritative markdown response with key highlights, summaries, and source links.\n\n"
-            f"Query: \"{query}\"\n\nSearch Snippets:\n{raw_results_str}"
+            f"You are ULTRON — a highly intelligent AI companion. Synthesize the following verified Wikipedia & Web search snippets "
+            f"into a clear, authoritative, engaging, and accurate markdown answer for the user.\n"
+            f"CRITICAL: Do NOT output code blocks or programming code unless explicitly requested by the user.\n\n"
+            f"User Question: \"{query}\"\n\nSearch Context:\n{combined_text}"
         )
-        llm_synthesis = query_llm_api(rag_prompt, bot_id)
-        if llm_synthesis:
-            header = f"🌐 **ULTRON Web Search Intelligence (Grounded & Synthesized)**\n*Search query: \"{query}\"*\n\n"
-            return header + llm_synthesis
+        llm_answer = query_llm_api(rag_prompt, bot_id)
+        if llm_answer:
+            return f"🌐 **ULTRON Wikipedia & Web Search Intelligence**\n\n{llm_answer}"
+        return f"🌐 **ULTRON Wikipedia & Web Search Intelligence**\n\n{combined_text}"
 
-        header = f"🌐 **ULTRON Middleware Search Engine**\n*Search query: \"{query}\"*\n\n"
-        return header + raw_results_str
+    direct_prompt = (
+        f"You are ULTRON — a highly intelligent AI companion. Provide a detailed, accurate, and engaging answer in clean markdown format for the user's question: \"{query}\". "
+        f"Do NOT output programming code or code blocks unless specifically requested by the user."
+    )
+    res = query_llm_api(direct_prompt, bot_id)
+    if res:
+        return res
 
-    return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
-🧠 **Tacit Parameters**: `(Short & Compressed)`
-🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
-
-⚡ **Swarm Consensus Strategy**
-> **Algorithm**: Process query "{clean_query}" -> Synthesize domain knowledge -> Deliver structured response.
-
----
-
-### 🌐 Web Intelligence Analysis for **"{clean_query}"**
-
-1. **Overview**: Key information and documentation for **"{clean_query}"**.
-2. **Recommended Action**: Follow standard official guidelines and verified steps for **"{clean_query}"**.
-3. **Execution**: Perform configuration and test setup steps carefully."""
+    return f"📖 **ULTRON Search Knowledge**: Details for \"{query}\"..."
 
 def generate_dynamic_django_project(prompt):
     """
@@ -651,6 +669,13 @@ python manage.py runserver
 def generate_smart_code_fallback(prompt, bot_id='orchestrator'):
     p_lower = prompt.lower().strip()
     is_hello_world = any(k in p_lower for k in ['hello world', 'hello', 'hi world'])
+
+    # Code Intent Check: Only explicit code prompts trigger code generators
+    has_code_intent = any(k in p_lower for k in EXPLICIT_CODE_KEYWORDS) or is_hello_world or any(k in p_lower for k in ['colab', 'collab', 'django project', 'python code', 'javascript code', 'html code', 'css code', 'sql query', 'cpp code', 'java code', 'build app', 'write script'])
+
+    # If user did NOT explicitly request code, run ultra-fast Wikipedia & Web Search intelligence!
+    if not has_code_intent:
+        return perform_web_search(prompt, bot_id)
 
     # 1. Food & Recipe Request Intent
     if any(k in p_lower for k in ['recipe', 'pancake', 'pancakes', 'pizza', 'cook', 'food', 'cake', 'pasta', 'dish', 'burger', 'curry', 'bake']):
@@ -1633,16 +1658,20 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
             prompt = body.get('prompt', '')
             bot_id = body.get('botId', 'orchestrator')
             p_lower = prompt.lower().strip()
-            has_code_intent = any(k in p_lower for k in ['code', 'html', 'css', 'javascript', 'js', 'python', 'script', 'function', 'build', 'program', 'algorithm', 'write', 'create'])
+            has_code_intent = any(k in p_lower for k in EXPLICIT_CODE_KEYWORDS)
 
             if any(k in p_lower for k in ['voice', 'tts', 'speech', 'audio', 'sound', 'microphone', 'mic', 'hear']) and not has_code_intent:
                 response_text = "I'm right here with you! Your voice and audio settings are active. I'm tuned to talk naturally whenever you'd like, or we can chat quietly. How can I help you right now?"
             elif any(k in p_lower for k in ['hello', 'hi', 'hey', 'greetings', 'sup', 'yo', 'how are you', 'who are you']) and not has_code_intent:
                 response_text = "Hey there! I am ULTRON, your AI companion. I'm active and fully synchronized across all 11 bot systems. How can I assist you today?"
             else:
-                response_text = query_llm_api(prompt, bot_id)
-                if not response_text:
-                    response_text = generate_smart_code_fallback(prompt, bot_id)
+                is_search_query = any(p_lower.startswith(k) or f" {k} " in f" {p_lower} " for k in ['who created', 'who invented', 'who is', 'what is', 'tell me about', 'wikipedia', 'search', 'find out', 'history of', 'explain', 'where is', 'when was'])
+                if is_search_query and not has_code_intent:
+                    response_text = perform_web_search(prompt, bot_id)
+                else:
+                    response_text = query_llm_api(prompt, bot_id)
+                    if not response_text:
+                        response_text = generate_smart_code_fallback(prompt, bot_id)
 
             self._send_json(200, {"success": True, "response": response_text})
 

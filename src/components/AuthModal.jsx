@@ -82,7 +82,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pt-14 animate-in fade-in duration-200">
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl relative border border-emerald-500/40 bg-zinc-950/95 shadow-[0_0_50px_rgba(16,185,129,0.2)]">
         <button
           onClick={onClose}

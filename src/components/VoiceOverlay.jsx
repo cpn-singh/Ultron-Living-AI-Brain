@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mic, MicOff, X, AlertCircle } from 'lucide-react';
 import { startVoiceRecognition, stopVoiceRecognition } from '../services/voiceService';
 
-export default function VoiceOverlay({ onSpeechResult }) {
+export default function VoiceOverlay({ activeTab, onSpeechResult }) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [partialText, setPartialText] = useState('');
@@ -93,7 +93,9 @@ export default function VoiceOverlay({ onSpeechResult }) {
   };
 
   return (
-    <div className="fixed bottom-20 sm:bottom-8 right-3 sm:right-8 flex flex-col items-end gap-3 z-40 pointer-events-auto select-none touch-manipulation">
+    <div className={`fixed bottom-24 sm:bottom-24 right-4 sm:right-6 flex-col items-end gap-3 z-40 pointer-events-auto select-none touch-manipulation ${
+      activeTab === 'chat' ? 'hidden sm:flex' : 'flex'
+    }`}>
       {/* Error Toast */}
       {errorMsg && (
         <div className="p-3 bg-red-950/90 border border-red-800/60 rounded-xl text-xs text-red-300 flex items-center gap-2 shadow-xl animate-in fade-in">

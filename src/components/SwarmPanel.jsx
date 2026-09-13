@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Play, CheckCircle2, Clock, Cpu, Shield, Zap, Sparkles, Check } from 'lucide-react';
+import { Play, CheckCircle2, Clock, Cpu, Shield, Zap, Sparkles, Check, X } from 'lucide-react';
 import { SwarmEngine } from '../data/agentsData';
 
-export default function SwarmPanel({ activeAgent }) {
+export default function SwarmPanel({ activeAgent, preset, onClose }) {
   const [engine] = useState(() => new SwarmEngine());
   const [execution, setExecution] = useState(() => engine.getExecution());
   const [isRunning, setIsRunning] = useState(false);
@@ -42,14 +42,27 @@ export default function SwarmPanel({ activeAgent }) {
           <p className="text-xs text-rose-300/60">5 Specialist Verification Agents (Sophia, Nexus, Vigil, Kinetics, Aegis) synchronized in DAG consensus.</p>
         </div>
 
-        <button
-          onClick={handleRunSwarm}
-          disabled={isRunning}
-          className="cyber-button px-4 py-2 rounded-xl text-xs font-semibold text-rose-100 flex items-center justify-center gap-2 shadow-lg disabled:opacity-40"
-        >
-          {isRunning ? <Clock className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-          {isRunning ? 'Running DAG Consensus...' : 'Execute Swarm DAG'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRunSwarm}
+            disabled={isRunning}
+            className="cyber-button px-4 py-2 rounded-xl text-xs font-semibold text-rose-100 flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 cursor-pointer"
+          >
+            {isRunning ? <Clock className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+            {isRunning ? 'Running DAG Consensus...' : 'Execute Swarm DAG'}
+          </button>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-rose-400/80 hover:text-white hover:bg-rose-900/60 rounded-xl transition-colors cursor-pointer border border-rose-900/40 bg-black/40"
+              title="Close Swarm Screen"
+            >
+              <X className="w-5 h-5 text-rose-400" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Goal Input */}

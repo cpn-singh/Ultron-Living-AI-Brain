@@ -3,7 +3,9 @@ import { TrendingUp, Code2, Layers, MessageSquare, Sparkles, ExternalLink } from
 
 export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm }) {
   return (
-    <div className="fixed bottom-4 sm:bottom-6 inset-x-0 z-30 flex flex-col items-center gap-2.5 pointer-events-none px-2 sm:px-4 select-none">
+    <div className={`fixed bottom-4 sm:bottom-6 inset-x-0 z-30 flex-col items-center gap-2.5 pointer-events-none px-2 sm:px-4 select-none ${
+      activeTab === 'chat' ? 'hidden sm:flex' : 'flex'
+    }`}>
       <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2.5 rounded-full bg-[#02040a]/90 backdrop-blur-[14px] border border-[rgba(0,240,255,0.2)] shadow-[0_12px_48px_rgba(0,0,0,0.95),0_0_30px_rgba(0,240,255,0.15)]">
         {/* Google Colab Redirect Button */}
         <a

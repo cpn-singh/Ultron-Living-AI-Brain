@@ -13,12 +13,21 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     const W = container.clientWidth || 1280;
     const H = container.clientHeight || 800;
 
+    // ── Helper to calculate camera distance based on responsive viewport width ──
+    const getResponsiveCameraZ = (width) => {
+      if (width < 480) return 9.2; // Extra distance for small mobile screens so entire atom fits
+      if (width < 768) return 7.5; // Moderate distance for tablets / mobile landscape
+      return 5.2;                  // Standard distance for desktop screens
+    };
+
+    const initialZ = getResponsiveCameraZ(W);
+
     // ── 1. Pitch Black Void Scene & Camera ─────────────────────────────
     const scene  = new THREE.Scene();
     scene.background = new THREE.Color(0x02040a); // True void black background (#02040a)
 
     const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
-    camera.position.set(0, 0.3, 5.2);
+    camera.position.set(0, 0.3, initialZ);
     camera.lookAt(0, 0, 0);
 
     // ── Renderer with Additive Alpha ───────────────────────────────────
@@ -39,8 +48,8 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     controls.enableZoom      = true;
     controls.zoomSpeed       = 1.2;
     controls.enablePan       = false;
-    controls.minDistance     = 1.8;
-    controls.maxDistance     = 14.0;
+    controls.minDistance     = 1.0;
+    controls.maxDistance     = 25.0;
     controls.autoRotate      = true;
     controls.autoRotateSpeed = 0.6;
     controls.target.set(0, 0, 0);
@@ -65,7 +74,8 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
     };
 
     const handleResetView = () => {
-      camera.position.set(0, 0.3, 5.2);
+      const currentW = container.clientWidth || window.innerWidth;
+      camera.position.set(0, 0.3, getResponsiveCameraZ(currentW));
       controls.target.set(0, 0, 0);
       controls.update();
     };
@@ -422,7 +432,7 @@ export default function BrainCanvas({ activeAgent, activeTab }) {
       />
 
       {/* Telemetry HUD Overlays & Technical Markers */}
-      <div className="absolute inset-0 pointer-events-none z-10 p-4 sm:p-6 flex flex-col justify-between font-mono text-[10px] text-cyan-400/50">
+      <div className="absolute inset-0 pointer-events-none z-10 pt-14 px-4 sm:px-6 pb-4 sm:pb-6 flex flex-col justify-between font-mono text-[10px] text-cyan-400/50">
         {/* Top Telemetry Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-cyan-500/20 shadow-lg">

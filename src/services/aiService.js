@@ -35,7 +35,14 @@ export async function generateAIResponse(userPrompt, botId = 'orchestrator', con
     return responseText;
   };
 
-  const hasCodeIntent = ['code', 'html', 'css', 'javascript', 'js', 'python', 'cpp', 'c++', 'java', 'sql', 'script', 'function', 'build', 'program', 'algorithm', 'write', 'create', 'generate'].some(k => lower.includes(k));
+  const explicitCodeKeywords = [
+    'write code', 'create code', 'generate code', 'write script', 'python code', 
+    'javascript code', 'html code', 'css code', 'sql query', 'cpp code', 'java code', 
+    'c++ code', 'code for', 'code snippet', 'source code', 'build app', 'write function',
+    'debug code', 'refactor code', 'programming', 'program in python', 'program in js',
+    'in colab', 'in collab', 'python script', 'django project', 'write a program'
+  ];
+  const hasCodeIntent = explicitCodeKeywords.some(k => lower.includes(k));
 
   // 1. Conversational / Microphone Test Intent Check
   if (GREETINGS_AND_MIC_TESTS.some(p => p.test(lower)) && !hasCodeIntent) {
