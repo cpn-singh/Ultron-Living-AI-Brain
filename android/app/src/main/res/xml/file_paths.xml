@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Internal app files -->
+    <files-path name="files" path="." />
+    <cache-path name="cache" path="." />
+
+    <!-- External storage root -->
+    <external-path name="external" path="." />
+
+    <!-- External files -->
+    <external-files-path name="external_files" path="." />
+    <external-cache-path name="external_cache" path="." />
+
+    <!-- Downloads folder (where Ultron creates files) -->
+    <external-path name="downloads" path="Download/" />
+    <external-path name="ultron_root" path="Download/Ultron/" />
+
+    <!-- Root (for MANAGE_EXTERNAL_STORAGE) -->
+    <root-path name="root" path="." />
+</paths>
