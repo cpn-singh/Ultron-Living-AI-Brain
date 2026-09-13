@@ -3,6 +3,7 @@ import { openExternalUrl, copyToClipboardAndOpenColab } from './mobileAppLaunche
 import { safeFetchPost } from './safeFetchService';
 import { BOTS } from '../data/botsData';
 
+const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA';
 const DEFAULT_NVIDIA_KEY = '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';
 const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
 
@@ -14,7 +15,7 @@ const GREETINGS_AND_MIC_TESTS = [
 
 /**
  * Main AI response generation router for ULTRON 11-Bot Fleet.
- * Priority: Conversational intent -> Local Command Parser -> Python Backend Server -> Cloud NVIDIA NIM API
+ * Priority: Conversational intent -> Local Command Parser -> Python Backend Server -> Cloud Gemini API -> Cloud NVIDIA NIM API
  */
 export async function generateAIResponse(userPrompt, botId = 'orchestrator', context = {}) {
   const trimmed = userPrompt.trim();
@@ -69,15 +70,43 @@ export async function generateAIResponse(userPrompt, botId = 'orchestrator', con
     // Python server offline or starting up
   }
 
-  // 4. Cloud API inference (NVIDIA NIM)
-  const apiKey = localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
-
-  const systemPrompt = `You are ULTRON, operating as bot engine: "${selectedBot.name}" (${selectedBot.category}).
+  // 4. Cloud API Inference: Primary -> Gemini API, Secondary -> NVIDIA NIM API
+  let systemPrompt = "";
+  if (hasCodeIntent) {
+    systemPrompt = `You are ULTRON, operating as bot engine: "${selectedBot.name}" (${selectedBot.category}).
 ${selectedBot.directive}
 
 System Environment: Mobile Android & Web Client. Strict safety rules active.
 Provide clean, high-impact responses formatted in markdown with code blocks matching the user's requested programming language.`;
+  } else {
+    systemPrompt = `You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini.
+Answer the user's request naturally, clearly, and thoroughly in clean markdown format, just like Gemini or ChatGPT.
+Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user.`;
+  }
 
+  // 4a. Try Cloud Gemini API
+  const geminiKey = localStorage.getItem('ultron_gemini_key') || DEFAULT_GEMINI_KEY;
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
+    const response = await safeFetchPost(geminiUrl, {
+      contents: [
+        { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
+      ]
+    }, {
+      'Content-Type': 'application/json'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+    }
+  } catch (err) {
+    console.warn('[AI Service] Cloud Gemini API unavailable, falling back to NVIDIA NIM:', err.message);
+  }
+
+  // 4b. Try Cloud NVIDIA NIM API
+  const nvidiaKey = localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
   try {
     const response = await safeFetchPost('https://integrate.api.nvidia.com/v1/chat/completions', {
       model: 'meta/llama-3.2-11b-vision-instruct',
@@ -88,7 +117,7 @@ Provide clean, high-impact responses formatted in markdown with code blocks matc
       temperature: 0.3,
       max_tokens: 1200
     }, {
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': `Bearer ${nvidiaKey}`
     });
 
     if (response.ok) {
@@ -97,7 +126,7 @@ Provide clean, high-impact responses formatted in markdown with code blocks matc
       if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
     }
   } catch (err) {
-    console.warn('[AI Service] Cloud API unavailable:', err.message);
+    console.warn('[AI Service] Cloud NVIDIA NIM API unavailable:', err.message);
   }
 
   // 5. Intelligent Human Companion Fallback Response

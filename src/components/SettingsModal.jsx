@@ -4,6 +4,7 @@ import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 
 export default function SettingsModal({ onClose }) {
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('ultron_gemini_key') || 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA');
   const [nvidiaKey, setNvidiaKey] = useState(() => localStorage.getItem('ultron_nvidia_key') || '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');
   const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('ultron_tts_voice') || 'af_heart');
   const [voiceSpeed, setVoiceSpeed] = useState(() => localStorage.getItem('ultron_voice_speed') || '1.0');
@@ -12,6 +13,7 @@ export default function SettingsModal({ onClose }) {
 
   const handleSave = () => {
     localStorage.setItem('ultron_ai_model', activeModel);
+    localStorage.setItem('ultron_gemini_key', geminiKey);
     localStorage.setItem('ultron_nvidia_key', nvidiaKey);
     localStorage.setItem('ultron_tts_voice', selectedVoice);
     localStorage.setItem('ultron_voice_speed', voiceSpeed);
@@ -48,23 +50,44 @@ export default function SettingsModal({ onClose }) {
         )}
 
         {/* ONLINE AI Section (Matches Screenshot 2) */}
-        <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-2">
+        <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-3">
           <div className="flex items-center justify-between text-xs font-bold text-rose-400">
-            <span>ONLINE AI</span>
-            <span className="text-[10px] text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Online</span>
+            <span>ONLINE AI ENGINES</span>
+            <span className="text-[10px] text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Synced & Active</span>
           </div>
 
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={nvidiaKey}
-              onChange={(e) => setNvidiaKey(e.target.value)}
-              placeholder="NVIDIA NIM API Key..."
-              className="flex-1 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 font-mono focus:outline-none focus:border-rose-500"
-            />
-            <span className="px-3 py-2 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-[10px] font-mono flex items-center">
-              CLOUD MANAGED
-            </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-cyan-300 font-mono">GOOGLE GEMINI API KEY (PRIMARY)</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="Gemini API Key..."
+                  className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 font-mono focus:outline-none focus:border-cyan-500"
+                />
+                <span className="px-3 py-2 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-[10px] font-mono flex items-center">
+                  GEMINI 3.5
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK)</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={nvidiaKey}
+                  onChange={(e) => setNvidiaKey(e.target.value)}
+                  placeholder="NVIDIA NIM API Key..."
+                  className="flex-1 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 font-mono focus:outline-none focus:border-rose-500"
+                />
+                <span className="px-3 py-2 rounded-xl bg-rose-950/40 border border-rose-800/40 text-rose-300 text-[10px] font-mono flex items-center">
+                  LLAMA 3.2
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

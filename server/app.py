@@ -42,6 +42,40 @@ def save_memories(memories):
     except Exception as e:
         print(f"[Python Backend] Error saving memory: {e}")
 
+def query_gemini_api(prompt, bot_id='orchestrator'):
+    key = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA')
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={key}'
+    headers = {'Content-Type': 'application/json'}
+
+    p_lower = prompt.lower()
+    has_code_intent = any(k in p_lower for k in ['code', 'html', 'css', 'javascript', 'js', 'python', 'cpp', 'c++', 'java', 'sql', 'script', 'function', 'build app', 'program', 'algorithm', 'refactor', 'debug', 'write code', 'create project'])
+
+    if has_code_intent:
+        system_prompt = f"You are ULTRON, operating as bot engine '{bot_id}'. Provide accurate, clean, high-impact responses formatted in markdown with correct code blocks matching the requested language."
+    else:
+        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested."
+
+    payload = json.dumps({
+        'contents': [
+            {'parts': [{'text': f"{system_prompt}\n\nUser Prompt: {prompt}"}]}
+        ]
+    }).encode('utf-8')
+
+    req = urllib.request.Request(url, data=payload, headers=headers)
+    try:
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=15) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode('utf-8'))
+                candidates = data.get('candidates', [])
+                if candidates:
+                    parts = candidates[0].get('content', {}).get('parts', [])
+                    if parts and parts[0].get('text'):
+                        return parts[0]['text'].strip()
+    except Exception as e:
+        print(f"[Python app.py] Gemini LLM call skipped/failed: {e}")
+    return None
+
 def query_nvidia_api(prompt, bot_id='orchestrator'):
     key = os.environ.get('NVIDIA_API_KEY', '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')
     url = 'https://integrate.api.nvidia.com/v1/chat/completions'
@@ -49,7 +83,15 @@ def query_nvidia_api(prompt, bot_id='orchestrator'):
         'Authorization': f'Bearer {key}',
         'Content-Type': 'application/json'
     }
-    system_prompt = f"You are ULTRON, operating as bot engine '{bot_id}'. Provide accurate, clean, high-impact responses formatted in markdown with correct code blocks matching the requested language."
+
+    p_lower = prompt.lower()
+    has_code_intent = any(k in p_lower for k in ['code', 'html', 'css', 'javascript', 'js', 'python', 'cpp', 'c++', 'java', 'sql', 'script', 'function', 'build app', 'program', 'algorithm', 'refactor', 'debug', 'write code', 'create project'])
+
+    if has_code_intent:
+        system_prompt = f"You are ULTRON, operating as bot engine '{bot_id}'. Provide accurate, clean, high-impact responses formatted in markdown with correct code blocks matching the requested language."
+    else:
+        system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested."
+
     payload = json.dumps({
         'model': 'meta/llama-3.2-11b-vision-instruct',
         'messages': [
@@ -73,10 +115,22 @@ def query_nvidia_api(prompt, bot_id='orchestrator'):
         print(f"[Python app.py] Cloud LLM call skipped/failed: {e}")
     return None
 
-def perform_web_search(query):
+def query_llm_api(prompt, bot_id='orchestrator'):
+    """
+    ULTRON Dual Engine Synchronization (Gemini API + NVIDIA NIM API)
+    Primary: Google Gemini API (gemini-3.5-flash)
+    Fallback: NVIDIA NIM API (llama-3.2-11b-vision)
+    """
+    res = query_gemini_api(prompt, bot_id)
+    if res:
+        return res
+    return query_nvidia_api(prompt, bot_id)
+
+def perform_web_search(query, bot_id='orchestrator'):
     """
     ULTRON Middleware Web Intelligence Search Connector
-    Performs real-time search queries across DuckDuckGo and Wikipedia APIs.
+    Performs real-time search queries across DuckDuckGo and Wikipedia APIs
+    and synthesizes results using Gemini / NVIDIA NIM LLM.
     """
     clean_query = re.sub(r'^(search|find|look up|tell me about|who is|what is|information on|search for)\s+', '', query, flags=re.IGNORECASE).strip()
     if not clean_query:
@@ -144,8 +198,19 @@ def perform_web_search(query):
             print(f"[Middleware Search] DDG HTML error: {e}")
 
     if results:
+        raw_results_str = "\n\n".join(results)
+        rag_prompt = (
+            f"You are ULTRON Web Intelligence Engine. Synthesize the following search query results into a "
+            f"clear, direct, authoritative markdown response with key highlights, summaries, and source links.\n\n"
+            f"Query: \"{query}\"\n\nSearch Snippets:\n{raw_results_str}"
+        )
+        llm_synthesis = query_llm_api(rag_prompt, bot_id)
+        if llm_synthesis:
+            header = f"🌐 **ULTRON Web Search Intelligence (Grounded & Synthesized)**\n*Search query: \"{query}\"*\n\n"
+            return header + llm_synthesis
+
         header = f"🌐 **ULTRON Middleware Search Engine**\n*Search query: \"{query}\"*\n\n"
-        return header + "\n\n".join(results)
+        return header + raw_results_str
 
     return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
 🧠 **Tacit Parameters**: `(Short & Compressed)`
@@ -1575,7 +1640,7 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
             elif any(k in p_lower for k in ['hello', 'hi', 'hey', 'greetings', 'sup', 'yo', 'how are you', 'who are you']) and not has_code_intent:
                 response_text = "Hey there! I am ULTRON, your AI companion. I'm active and fully synchronized across all 11 bot systems. How can I assist you today?"
             else:
-                response_text = query_nvidia_api(prompt, bot_id)
+                response_text = query_llm_api(prompt, bot_id)
                 if not response_text:
                     response_text = generate_smart_code_fallback(prompt, bot_id)
 
