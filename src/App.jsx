@@ -44,11 +44,6 @@ export default function App() {
     window.dispatchEvent(new CustomEvent('brain-reset-view'));
   };
 
-  const handleLaunchTradeSwarm = () => {
-    setSwarmPreset('trade');
-    setActiveTab('swarm');
-  };
-
   const handleLaunchCodeSwarm = () => {
     setSwarmPreset('code');
     setActiveTab('swarm');
@@ -200,7 +195,6 @@ export default function App() {
       <BotDockBar 
         activeTab={activeTab}
         setActiveTab={setActiveTab} 
-        onLaunchTradeSwarm={handleLaunchTradeSwarm}
         onLaunchCodeSwarm={handleLaunchCodeSwarm}
       />
 

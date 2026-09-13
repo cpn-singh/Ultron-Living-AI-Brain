@@ -341,10 +341,15 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
             if (silenceTimer) clearInterval(silenceTimer);
             if (autoStopTimeout) clearTimeout(autoStopTimeout);
 
-            if (event.error !== 'no-speech' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              const fallbackRes = await startMediaRecorderFallback(onStatus, onPartial);
-              resolve(fallbackRes);
-              return;
+            // On mobile / desktop speech recognition failure, fallback immediately to MediaRecorder audio recording
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && event.error !== 'aborted') {
+              try {
+                const fallbackRes = await startMediaRecorderFallback(onStatus, onPartial);
+                resolve(fallbackRes);
+                return;
+              } catch (e) {
+                console.warn('[VoiceService] Fallback also failed:', e);
+              }
             }
 
             if (onStatus) onStatus('idle');

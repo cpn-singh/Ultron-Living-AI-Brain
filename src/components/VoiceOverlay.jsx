@@ -93,7 +93,7 @@ export default function VoiceOverlay({ onSpeechResult }) {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 flex flex-col items-end gap-3 z-50 pointer-events-auto select-none">
+    <div className="fixed bottom-20 sm:bottom-8 right-3 sm:right-8 flex flex-col items-end gap-3 z-40 pointer-events-auto select-none touch-manipulation">
       {/* Error Toast */}
       {errorMsg && (
         <div className="p-3 bg-red-950/90 border border-red-800/60 rounded-xl text-xs text-red-300 flex items-center gap-2 shadow-xl animate-in fade-in">

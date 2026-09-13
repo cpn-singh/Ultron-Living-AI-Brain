@@ -118,7 +118,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     return (
       <button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-16 right-6 z-30 px-4 py-2.5 rounded-2xl glass-panel border border-rose-500/60 bg-zinc-950/90 text-xs font-bold text-rose-200 shadow-2xl flex items-center gap-2 hover:scale-105 transition-all"
+        className="fixed bottom-16 sm:bottom-16 right-3 sm:right-6 z-30 px-3.5 sm:px-4 py-2.5 rounded-2xl glass-panel border border-rose-500/60 bg-zinc-950/90 text-xs font-bold text-rose-200 shadow-2xl flex items-center gap-2 hover:scale-105 transition-all"
       >
         <Sparkles className="w-4 h-4 text-rose-400 animate-pulse" />
         <span>NEMI Chat [{activeBotObj.shortName}]</span>
@@ -131,8 +131,8 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     <div
       className={`glass-panel border border-rose-900/60 bg-zinc-950/90 backdrop-blur-2xl rounded-2xl shadow-2xl flex flex-col transition-all duration-300 pointer-events-auto ${
         isExpanded
-          ? 'fixed inset-4 sm:inset-12 z-30'
-          : 'fixed bottom-16 right-4 sm:right-6 w-[94vw] sm:w-[420px] h-[540px] max-h-[75vh] z-30'
+          ? 'fixed inset-2 sm:inset-12 z-30'
+          : 'fixed bottom-16 sm:bottom-16 right-2 sm:right-6 left-2 sm:left-auto w-[calc(100vw-16px)] sm:w-[420px] h-[520px] max-h-[70vh] z-30'
       }`}
     >
       {/* Window Header */}
@@ -224,20 +224,38 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       </div>
 
       {/* Input Bar at Bottom of Floating Window */}
-      <div className="p-3 bg-black/70 border-t border-rose-900/40 rounded-b-2xl flex items-center gap-2 flex-shrink-0">
+      <div className="p-2.5 sm:p-3 bg-black/80 border-t border-rose-900/40 rounded-b-2xl flex items-center gap-2 flex-shrink-0">
+        <button
+          type="button"
+          onClick={handleVoice}
+          aria-label={micState === MIC_STATES.idle ? "Start voice recognition" : "Stop voice recognition"}
+          title={micState === MIC_STATES.idle ? "Voice input (Speak now)" : "Stop listening"}
+          className={`p-2 rounded-xl border transition-all flex items-center justify-center flex-shrink-0 ${
+            micState !== MIC_STATES.idle
+              ? 'bg-red-600/40 border-red-500 text-red-200 animate-pulse'
+              : 'bg-rose-950/40 border-rose-900/60 text-rose-300 hover:text-white hover:bg-rose-900/40'
+          }`}
+        >
+          {micState !== MIC_STATES.idle ? (
+            <MicOff className="w-4 h-4 text-red-400" />
+          ) : (
+            <Mic className="w-4 h-4 text-rose-400" />
+          )}
+        </button>
+
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder={activeBotObj.placeholder}
-          className="flex-1 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 placeholder-rose-400/30 focus:outline-none focus:border-rose-500"
+          className="flex-1 min-w-0 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 placeholder-rose-400/30 focus:outline-none focus:border-rose-500"
         />
 
         <button
           onClick={() => handleSend()}
           disabled={loading || !input.trim()}
-          className="cyber-button p-2 rounded-xl text-rose-300 flex items-center justify-center disabled:opacity-40"
+          className="cyber-button p-2 rounded-xl text-rose-300 flex items-center justify-center disabled:opacity-40 flex-shrink-0"
         >
           <Send className="w-3.5 h-3.5" />
         </button>

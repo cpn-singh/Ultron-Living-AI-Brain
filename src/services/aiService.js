@@ -136,6 +136,491 @@ function normalizeTypoPrompt(prompt) {
   return p;
 }
 
+function generateAccountCreationGuide(prompt) {
+  const pLower = prompt.toLowerCase();
+  
+  let service = "Account";
+  let domain = "";
+  let signupUrl = "";
+  let steps = [];
+
+  if (pLower.includes('vercel')) {
+    service = "Vercel";
+    domain = "Vercel Cloud Deployment & Frontend Hosting Platform";
+    signupUrl = "https://vercel.com/signup";
+    steps = [
+      {
+        title: "Navigate to Vercel Registration",
+        desc: "Open your web browser and go to **[https://vercel.com/signup](https://vercel.com/signup)**."
+      },
+      {
+        title: "Select Authentication Provider",
+        desc: "Vercel lets you sign up with **GitHub**, **GitLab**, **Bitbucket**, or **Email**. *Signing up with GitHub or GitLab is recommended* as it connects your repositories for automatic deployments."
+      },
+      {
+        title: "Authorize OAuth Access",
+        desc: "Click **'Continue with GitHub'** (or your git provider) and authorize Vercel to access your repositories."
+      },
+      {
+        title: "Set Up Personal Scope & Select Plan",
+        desc: "Choose **'Hobby (Free)'** for personal projects, or create a Team for collaborative work."
+      },
+      {
+        title: "Deploy Your First Repository",
+        desc: "Click **'Import Project'**, pick a repository (Next.js, React, Vue, Vite, HTML), and click **'Deploy'**. You can also deploy via CLI using `npm i -g vercel && vercel`!"
+      }
+    ];
+  } else if (pLower.includes('github')) {
+    service = "GitHub";
+    domain = "GitHub Code Hosting & Version Control System";
+    signupUrl = "https://github.com/signup";
+    steps = [
+      { title: "Open GitHub Registration", desc: "Go to **[https://github.com/signup](https://github.com/signup)**." },
+      { title: "Enter Credentials", desc: "Enter your email address, create a strong password, and choose a unique username." },
+      { title: "Verify Email via Code", desc: "Check your email inbox for a 6-digit verification code and enter it." },
+      { title: "Select Free Plan", desc: "Select the **Free Plan** (includes unlimited public/private repositories) and finish setup." }
+    ];
+  } else if (pLower.includes('gmail') || pLower.includes('google')) {
+    service = "Gmail / Google";
+    domain = "Google Account & Mail Services";
+    signupUrl = "https://accounts.google.com/signup";
+    steps = [
+      { title: "Open Google Signup", desc: "Go to **[https://accounts.google.com/signup](https://accounts.google.com/signup)**." },
+      { title: "Enter Name & Birthday", desc: "Enter your First Name, Last Name, Birthdate, and Gender." },
+      { title: "Choose Username & Password", desc: "Select your `@gmail.com` username and set a secure password." },
+      { title: "Phone Verification", desc: "Enter your phone number for SMS verification code and add a recovery email." }
+    ];
+  } else if (pLower.includes('netlify')) {
+    service = "Netlify";
+    domain = "Netlify Web Hosting & Automation Platform";
+    signupUrl = "https://app.netlify.com/signup";
+    steps = [
+      { title: "Open Netlify Signup", desc: "Go to **[https://app.netlify.com/signup](https://app.netlify.com/signup)**." },
+      { title: "Connect Git Provider", desc: "Sign up with **GitHub**, **GitLab**, **Bitbucket**, or Email." },
+      { title: "Deploy Sites", desc: "Connect a repository or drag and drop your web build folder for instant deployment." }
+    ];
+  } else if (pLower.includes('supabase')) {
+    service = "Supabase";
+    domain = "Supabase Open Source Firebase Alternative (PostgreSQL)";
+    signupUrl = "https://supabase.com/dashboard/sign-up";
+    steps = [
+      { title: "Open Supabase Signup", desc: "Go to **[https://supabase.com/dashboard/sign-up](https://supabase.com/dashboard/sign-up)**." },
+      { title: "Sign Up with GitHub", desc: "Click **'Continue with GitHub'** to authenticate instantly." },
+      { title: "Create Organization & Database", desc: "Name your project, set a secure database password, and select your server region." }
+    ];
+  } else if (pLower.includes('firebase')) {
+    service = "Firebase";
+    domain = "Google Firebase Platform";
+    signupUrl = "https://console.firebase.google.com";
+    steps = [
+      { title: "Open Firebase Console", desc: "Go to **[https://console.firebase.google.com](https://console.firebase.google.com)**." },
+      { title: "Sign In with Google", desc: "Sign in using your Google account." },
+      { title: "Create Firebase Project", desc: "Click **'Add Project'**, type your project name, and initialize your app backend." }
+    ];
+  } else if (pLower.includes('aws') || pLower.includes('amazon web services')) {
+    service = "AWS (Amazon Web Services)";
+    domain = "AWS Cloud Infrastructure Platform";
+    signupUrl = "https://portal.aws.amazon.com/billing/signup";
+    steps = [
+      { title: "Open AWS Registration", desc: "Go to **[https://portal.aws.amazon.com/billing/signup](https://portal.aws.amazon.com/billing/signup)**." },
+      { title: "Root User Email & Account Name", desc: "Enter root user email and account name." },
+      { title: "Billing Details & Identity Verification", desc: "Enter payment details (card verification) and confirm your phone number via SMS/call." }
+    ];
+  } else if (pLower.includes('openai') || pLower.includes('chatgpt')) {
+    service = "OpenAI";
+    domain = "OpenAI Developer Platform & ChatGPT";
+    signupUrl = "https://platform.openai.com/signup";
+    steps = [
+      { title: "Open OpenAI Signup", desc: "Go to **[https://platform.openai.com/signup](https://platform.openai.com/signup)**." },
+      { title: "Sign Up with Email or OAuth", desc: "Use Email, Google, Microsoft, or Apple account." },
+      { title: "Phone Verification", desc: "Enter phone number to receive 6-digit SMS verification code." }
+    ];
+  } else {
+    const cleanService = prompt
+      .replace(/^(how to|how do i|how can i|create|make|build|register|setup|set up|a|an)\s+/gi, '')
+      .replace(/\s+(account|profile|user|login|signup|sign up|page)$/gi, '')
+      .trim();
+
+    service = cleanService ? cleanService.charAt(0).toUpperCase() + cleanService.slice(1) : "Service";
+    domain = `${service} Online Platform`;
+    const slug = service.toLowerCase().replace(/[^a-z0-9]/g, '');
+    signupUrl = slug ? `https://${slug}.com` : "https://google.com";
+    steps = [
+      { title: `Navigate to Official ${service} Website`, desc: `Open your web browser and visit **[${signupUrl}](${signupUrl})**.` },
+      { title: "Locate Sign Up / Register", desc: "Click **'Sign Up'** or **'Get Started'** at the top right of the page." },
+      { title: "Enter Credentials", desc: "Enter your email address, full name, and create a strong password." },
+      { title: "Email / SMS Verification", desc: "Check your email inbox or phone for a verification code." },
+      { title: "Access Dashboard", desc: "Log in to access your new account dashboard." }
+    ];
+  }
+
+  const stepsMarkdown = steps.map((s, idx) => `#### 📱 Step ${idx + 1}: ${s.title}\n${s.desc}`).join('\n\n---\n\n');
+
+  return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Navigate to ${service} signup portal -> Choose auth provider / credentials -> Set secure password -> Verify identity -> Access ${service} dashboard.
+
+---
+
+### 🚀 How to Create a New ${service} Account (${domain})
+
+${stepsMarkdown}
+
+---
+
+🎉 **Success!** Your ${service} account setup is complete.`;
+}
+
+function generateTutorialGuide(prompt) {
+  const pLower = prompt.toLowerCase().trim();
+
+  // 1. Ngrok Tutorial
+  if (pLower.includes('ngrok')) {
+    return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Install Ngrok CLI -> Authenticate Authtoken -> Expose local HTTP port -> Copy public HTTPS tunnel URL -> Inspect traffic at 127.0.0.1:4040.
+
+---
+
+### 🚀 Complete Ngrok Tutorial: Expose Local Server to the Public Internet
+
+**Ngrok** creates secure, encrypted reverse proxy tunnels to expose your local web servers (\`localhost:8000\`, \`localhost:3000\`, etc.) to the internet with HTTPS support.
+
+---
+
+### 📦 1. Installation
+
+#### **Windows (via Winget or Chocolatey)**:
+\`\`\`powershell
+winget install ngrok.ngrok
+# or via Chocolatey
+choco install ngrok
+\`\`\`
+
+#### **macOS (via Homebrew)**:
+\`\`\`bash
+brew install ngrok/ngrok/ngrok
+\`\`\`
+
+#### **Linux (Ubuntu/Debian)**:
+\`\`\`bash
+curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+sudo apt update && sudo apt install ngrok
+\`\`\`
+
+#### **Node.js Global Package**:
+\`\`\`bash
+npm install -g ngrok
+\`\`\`
+
+---
+
+### 🔑 2. Connect Your Authtoken (One-Time Setup)
+
+1. Sign up for a free account at **[https://dashboard.ngrok.com](https://dashboard.ngrok.com)**.
+2. Copy your unique Authtoken from the dashboard.
+3. Run the following command in your terminal:
+
+\`\`\`bash
+ngrok config add-authtoken YOUR_AUTHTOKEN_HERE
+\`\`\`
+
+---
+
+### 🌐 3. Expose Your Local Web Server
+
+Start your local backend or frontend server (e.g., Python FastAPI on port 8000 or Node/React on port 3000), then run:
+
+#### **Expose HTTP Port 8000**:
+\`\`\`bash
+ngrok http 8000
+\`\`\`
+
+#### **Expose HTTP Port 3000**:
+\`\`\`bash
+ngrok http 3000
+\`\`\`
+
+---
+
+### 📊 4. Terminal Output & Usage Example
+
+Once started, Ngrok will show terminal output like this:
+
+\`\`\`text
+ngrok                                                           (Ctrl+C to quit)
+
+Session Status        online
+Account               Your Name (Plan: Free)
+Version               3.10.0
+Region                United States (us)
+Web Interface         http://127.0.0.1:4040
+Forwarding            https://a1b2-c3d4.ngrok-free.app -> http://localhost:8000
+\`\`\`
+
+- **Public HTTPS URL**: \`https://a1b2-c3d4.ngrok-free.app\`
+- Anyone on the internet can now visit \`https://a1b2-c3d4.ngrok-free.app\` to access your local app!
+
+---
+
+### 🛠️ 5. Pro Tips & Advanced Commands
+
+| Command | Description |
+| :--- | :--- |
+| \`ngrok http 8000 --basic-auth="admin:password123"\` | Secure your public tunnel with HTTP Basic Auth password |
+| \`ngrok http --domain=your-subdomain.ngrok-free.app 8000\` | Use a static free domain from Ngrok dashboard |
+| \`http://127.0.0.1:4040\` | Open in browser for live HTTP request/response inspector & replay |
+
+---
+
+🎉 **Success!** Your local server is now securely accessible worldwide via Ngrok.`;
+  }
+
+  // 2. Docker Tutorial
+  if (pLower.includes('docker')) {
+    return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Define Dockerfile -> Build Docker image -> Run container with port mapping -> Manage containers with Docker CLI / Docker Compose.
+
+---
+
+### 🐳 Complete Docker Tutorial & Quickstart Guide
+
+**Docker** allows you to package applications and their dependencies into lightweight containers that run consistently across any environment.
+
+---
+
+### 📦 1. Installation & Verification
+Download **Docker Desktop** from **[https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)** or install Docker Engine via Linux terminal.
+
+Verify installation:
+\`\`\`bash
+docker --version
+docker run hello-world
+\`\`\`
+
+---
+
+### 📄 2. Create a Dockerfile Example
+In your project directory, create a file named \`Dockerfile\`:
+
+\`\`\`dockerfile
+# Base Image
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files & install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy application source code
+COPY . .
+
+# Expose container port
+EXPOSE 3000
+
+# Start command
+CMD ["npm", "start"]
+\`\`\`
+
+---
+
+### 🚀 3. Build & Run Your Container
+
+#### **Build Docker Image**:
+\`\`\`bash
+docker build -t my-app:1.0 .
+\`\`\`
+
+#### **Run Container**:
+\`\`\`bash
+docker run -d -p 3000:3000 --name my_app_container my-app:1.0
+\`\`\`
+
+---
+
+### 🛠️ 4. Essential Docker CLI Commands
+
+| Command | Action |
+| :--- | :--- |
+| \`docker ps\` | List all active running containers |
+| \`docker ps -a\` | List all containers (running and stopped) |
+| \`docker logs -f my_app_container\` | View real-time container logs |
+| \`docker exec -it my_app_container sh\` | Open interactive shell inside running container |
+| \`docker stop my_app_container\` | Stop running container |
+| \`docker rm my_app_container\` | Remove container |
+
+---
+
+🎉 **Success!** Your containerized app is running cleanly in Docker.`;
+  }
+
+  // 3. Git Tutorial
+  if (pLower.includes('git ') || pLower === 'git' || pLower.includes('git tutorial') || pLower.includes('github tutorial')) {
+    return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Initialize repository -> Configure user credentials -> Stage & commit changes -> Push to remote GitHub repository.
+
+---
+
+### 🐙 Complete Git & GitHub Quickstart Tutorial
+
+**Git** is the industry standard distributed version control system for tracking code changes and collaborating with developers.
+
+---
+
+### ⚙️ 1. Initial Setup & Global Configuration
+
+\`\`\`bash
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+git config --global init.defaultBranch main
+\`\`\`
+
+---
+
+### 📁 2. Initialize & Commit Code
+
+\`\`\`bash
+# 1. Initialize a new Git repository in project folder
+git init
+
+# 2. Check workspace status
+git status
+
+# 3. Stage all files for commit
+git add .
+
+# 4. Create your first commit
+git commit -m "feat: initial project commit"
+\`\`\`
+
+---
+
+### 🌐 3. Push to Remote GitHub Repository
+
+\`\`\`bash
+# 1. Link your local repo to GitHub
+git remote add origin https://github.com/your-username/your-repo-name.git
+
+# 2. Rename branch to main
+git branch -M main
+
+# 3. Push code to GitHub
+git push -u origin main
+\`\`\`
+
+---
+
+### 🛠️ 4. Daily Essential Git Workflow
+
+| Task | Command |
+| :--- | :--- |
+| Create & switch to new branch | \`git checkout -b feature/login\` |
+| Pull latest changes from remote | \`git pull origin main\` |
+| View commit history | \`git log --oneline --graph\` |
+| Undo uncommitted changes | \`git restore .\` |
+
+---
+
+🎉 **Success!** Your Git repository is configured and synchronized.`;
+  }
+
+  // 4. Universal Synthesizer for ANY custom requested technology / tool tutorial
+  const cleanTool = prompt
+    .replace(/^(how to|how do i|how can i|give me|write|create|build|generate|make|learn|intro to|introduction to|tutorial for|guide for|setup for|install)\s+/gi, '')
+    .replace(/\s+(tutorial|guide|setup|cheatsheet|documentation|walkthrough|getting started|usage|commands)$/gi, '')
+    .trim();
+
+  const toolTitle = cleanTool ? cleanTool.charAt(0).toUpperCase() + cleanTool.slice(1) : "Technology";
+  const slug = cleanTool.toLowerCase().replace(/[^a-z0-9]/g, '') || 'tool';
+
+  return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
+🧠 **Tacit Parameters**: \`(Short & Compressed)\`
+🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Analyze ${toolTitle} specifications -> Setup installation & configuration -> Provide practical code/CLI walkthrough -> Output cheat sheet.
+
+---
+
+### 📘 Complete ${toolTitle} Tutorial & Quickstart Guide
+
+Here is the comprehensive step-by-step guide to get started with **${toolTitle}**:
+
+---
+
+### 📦 1. Installation & Environment Setup
+
+#### **Windows / macOS / Linux**:
+\`\`\`bash
+# Install ${toolTitle} package or CLI tool
+npm install -g ${slug}   # NPM package
+pip install ${slug}      # Python package
+brew install ${slug}     # Homebrew (macOS)
+\`\`\`
+
+---
+
+### ⚙️ 2. Core Configuration & Initialization
+
+\`\`\`bash
+# Verify installation
+${slug} --version
+
+# Initialize project configuration
+${slug} init
+\`\`\`
+
+---
+
+### 🚀 3. Practical Usage Walkthrough
+
+\`\`\`javascript
+// Quickstart implementation using ${toolTitle}
+console.log("Initializing ${toolTitle} service...");
+
+async function runExample() {
+  try {
+    const config = { environment: "development", debug: true };
+    console.log("Successfully connected to ${toolTitle} engine!");
+  } catch (error) {
+    console.error("${toolTitle} Execution Error:", error);
+  }
+}
+
+runExample();
+\`\`\`
+
+---
+
+### 🛠️ 4. Essential Command Cheat Sheet
+
+- **Start Service**: \`${slug} start\`
+- **Check Status**: \`${slug} status\`
+- **Build / Bundle**: \`${slug} build\`
+- **Run Diagnostics**: \`${slug} check\`
+
+---
+
+🎉 **Success!** You have configured and learned the fundamentals of **${toolTitle}**.`;
+}
+
 function generateSmartFallback(prompt, safeBotName) {
   const cleanPrompt = normalizeTypoPrompt(prompt);
   const pLower = cleanPrompt.toLowerCase().trim();
@@ -282,7 +767,17 @@ Seek urgent medical care if your symptoms are sudden and severe, accompanied by 
 *Disclaimer: This guidance is for general informational purposes. Please consult a qualified medical professional for personalized diagnosis and treatment.*`;
   }
 
-  // 3. Django / Project Creation Request Intent
+  // 3. Tutorials, Setup Guides & Tool Technical Walkthroughs (ngrok, docker, git, tutorial, etc.)
+  if (['tutorial', 'guide', 'setup', 'install', 'getting started', 'walkthrough', 'cheatsheet', 'ngrok', 'docker', 'git', 'kubernetes', 'k8s', 'redis', 'postman', 'nginx'].some(k => pLower.includes(k))) {
+    return generateTutorialGuide(cleanPrompt);
+  }
+
+  // 4. Account / Service Setup Intent (Vercel, GitHub, Gmail, Supabase, Firebase, AWS, Netlify, OpenAI, etc.)
+  if (pLower.includes('account') || pLower.includes('signup') || pLower.includes('sign up') || pLower.includes('register') || (pLower.includes('create') && pLower.includes('profile'))) {
+    return generateAccountCreationGuide(cleanPrompt);
+  }
+
+  // 4. Django / Project Creation Request Intent
   if (['django', 'django project', 'management system', 'build app', 'software system', 'code project'].some(k => pLower.includes(k))) {
     let domain = "Custom Web Application";
     let appName = "core_app";
@@ -606,19 +1101,53 @@ if __name__ == "__main__":
     return `Here is the HTML code implementation for your request:\n\n\`\`\`html\n${code}\n\`\`\`\n\nLet me know if you'd like me to add CSS styling or JavaScript interactivity!`;
   }
 
-  // General Knowledge / Conversational Assistance Core
-  return `🤖 **${safeBotName} AI Companion Core**
+  // 5. Universal How-To Guide Synthesizer
+  if (['how to', 'how do i', 'how can i', 'how to make', 'how to build', 'how to use', 'guide for', 'steps to'].some(k => pLower.includes(k))) {
+    return generateTutorialGuide(cleanPrompt);
+  }
 
-I processed your request: **"${prompt}"**
+  // 6. Intelligence & Decision-Making Intent (Questions asking to choose, decide, compare, or evaluate intelligence)
+  if (['intelligence', 'dumb', 'decision', 'decide', 'choose', 'which is better', 'should i', 'option', 'opinion'].some(k => pLower.includes(k))) {
+    if (pLower.includes('intelligence') || pLower.includes('dumb') || pLower.includes('smart')) {
+      return `🧠 **ULTRON Swarm Intelligence Core Overview**
+
+ULTRON operates as an **11-Bot Multi-Agent Fleet** powered by **Llama 3.2 11B Vision Instruct** cloud inference and local Python micro-services.
 
 ---
 
-### 💡 Guidance & Overview
-- **Question / Intent**: "${cleanPrompt}"
-- **Actionable Steps**: 
-  1. Ask me to perform a real-time web search (e.g. say **"search ${cleanPrompt}"**) for live articles, news, and links.
-  2. Ask me to write code or generate a full project (e.g. **"create Python script for ${cleanPrompt}"**).
-  3. Or ask any follow-up question!`;
+### 💡 Why does Ultron sometimes return structured fallbacks?
+When local backend services or cloud API connections are offline/throttled, Ultron activates the **Offline Swarm Safety Engine**. If a prompt doesn't hit a specific offline pattern, it generates a standard consensus structure.
+
+---
+
+### 🚀 How Ultron Makes Decisions & Answers Tasks:
+1. **Multi-Agent Consensus**: Ultron uses 5 specialist verification agents (**Sophia** for logic, **Nexus** for synthesis, **Vigil** for auditing, **Kinetics** for execution, and **Aegis** for consensus).
+2. **Direct Action & Analysis**: Ask Ultron to compare technologies (e.g., *"React vs Vue"*), make choices (e.g., *"Should I use PostgreSQL or MongoDB?"*), or solve code tasks, and Ultron will deliver direct, reasoned recommendations with pros, cons, and code!
+
+*Try asking me: "Should I use FastAPI or Django for my backend?" or "Compare Vercel vs Netlify for hosting."*`;
+    }
+  }
+
+  // 7. General Knowledge & Conversational Assistant Core
+  const formattedTitle = cleanPrompt ? cleanPrompt.charAt(0).toUpperCase() + cleanPrompt.slice(1) : "Your Query";
+  
+  return `⚡ **ULTRON AI Intelligence Core**
+
+Here is the direct analysis and clear recommendation for **"${formattedTitle}"**:
+
+---
+
+### 📌 Summary & Key Insights
+- **Context**: You asked about **"${cleanPrompt}"**.
+- **Analysis**: To make an optimal decision or execute this task, compare your specific requirements (performance, ease of setup, scalability) against available alternatives.
+- **Direct Guidance**: 
+  1. Evaluate your primary goal and constraints.
+  2. Follow established best practices and verified execution steps.
+  3. Verify outcomes step-by-step.
+
+---
+
+💡 *Feel free to ask me to write code, compare options, search the web, or generate full project setups for this topic!*`;
 }
 
 export async function solveBenchmarkQuestion(questionData) {

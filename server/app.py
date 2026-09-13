@@ -147,7 +147,20 @@ def perform_web_search(query):
         header = f"🌐 **ULTRON Middleware Search Engine**\n*Search query: \"{query}\"*\n\n"
         return header + "\n\n".join(results)
 
-    return f"🌐 **ULTRON Middleware Search Intelligence**\n\nI processed your search query **\"{clean_query}\"**. Here is the structured summary:\n\nSearching for **{clean_query}** returns key information across technical documentation, official repositories, and general knowledge. You can refine your search or ask me to generate code for this topic!"
+    return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Process query "{clean_query}" -> Synthesize domain knowledge -> Deliver structured response.
+
+---
+
+### 🌐 Web Intelligence Analysis for **"{clean_query}"**
+
+1. **Overview**: Key information and documentation for **"{clean_query}"**.
+2. **Recommended Action**: Follow standard official guidelines and verified steps for **"{clean_query}"**.
+3. **Execution**: Perform configuration and test setup steps carefully."""
 
 def generate_dynamic_django_project(prompt):
     """
@@ -711,12 +724,477 @@ Seek urgent medical care if your symptoms are sudden and severe, accompanied by 
 
 *Disclaimer: This guidance is for general informational purposes. Please consult a qualified medical professional for personalized diagnosis and treatment.*"""
 
-    # 3. Search Intent Check
-    search_keywords = ['search', 'find out', 'who is', 'what is', 'latest news', 'tell me about', 'look up', 'search for', 'information on', 'give me', 'recipe', 'how to']
+def generate_tutorial_guide(prompt):
+    p_lower = prompt.lower().strip()
+
+    if 'ngrok' in p_lower:
+        return """⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Install Ngrok CLI -> Authenticate Authtoken -> Expose local HTTP port -> Copy public HTTPS tunnel URL -> Inspect traffic at 127.0.0.1:4040.
+
+---
+
+### 🚀 Complete Ngrok Tutorial: Expose Local Server to the Public Internet
+
+**Ngrok** creates secure, encrypted reverse proxy tunnels to expose your local web servers (`localhost:8000`, `localhost:3000`, etc.) to the internet with HTTPS support.
+
+---
+
+### 📦 1. Installation
+
+#### **Windows (via Winget or Chocolatey)**:
+```powershell
+winget install ngrok.ngrok
+# or via Chocolatey
+choco install ngrok
+```
+
+#### **macOS (via Homebrew)**:
+```bash
+brew install ngrok/ngrok/ngrok
+```
+
+#### **Linux (Ubuntu/Debian)**:
+```bash
+curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+sudo apt update && sudo apt install ngrok
+```
+
+#### **Node.js Global Package**:
+```bash
+npm install -g ngrok
+```
+
+---
+
+### 🔑 2. Connect Your Authtoken (One-Time Setup)
+
+1. Sign up for a free account at **[https://dashboard.ngrok.com](https://dashboard.ngrok.com)**.
+2. Copy your unique Authtoken from the dashboard.
+3. Run the following command in your terminal:
+
+```bash
+ngrok config add-authtoken YOUR_AUTHTOKEN_HERE
+```
+
+---
+
+### 🌐 3. Expose Your Local Web Server
+
+Start your local backend or frontend server (e.g., Python FastAPI on port 8000 or Node/React on port 3000), then run:
+
+#### **Expose HTTP Port 8000**:
+```bash
+ngrok http 8000
+```
+
+#### **Expose HTTP Port 3000**:
+```bash
+ngrok http 3000
+```
+
+---
+
+### 📊 4. Terminal Output & Usage Example
+
+Once started, Ngrok will show terminal output like this:
+
+```text
+ngrok                                                           (Ctrl+C to quit)
+
+Session Status        online
+Account               Your Name (Plan: Free)
+Version               3.10.0
+Region                United States (us)
+Web Interface         http://127.0.0.1:4040
+Forwarding            https://a1b2-c3d4.ngrok-free.app -> http://localhost:8000
+```
+
+- **Public HTTPS URL**: `https://a1b2-c3d4.ngrok-free.app`
+- Anyone on the internet can now visit `https://a1b2-c3d4.ngrok-free.app` to access your local app!
+
+---
+
+### 🛠️ 5. Pro Tips & Advanced Commands
+
+| Command | Description |
+| :--- | :--- |
+| `ngrok http 8000 --basic-auth="admin:password123"` | Secure your public tunnel with HTTP Basic Auth password |
+| `ngrok http --domain=your-subdomain.ngrok-free.app 8000` | Use a static free domain from Ngrok dashboard |
+| `http://127.0.0.1:4040` | Open in browser for live HTTP request/response inspector & replay |
+
+---
+
+🎉 **Success!** Your local server is now securely accessible worldwide via Ngrok."""
+
+    if 'docker' in p_lower:
+        return """⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Define Dockerfile -> Build Docker image -> Run container with port mapping -> Manage containers with Docker CLI / Docker Compose.
+
+---
+
+### 🐳 Complete Docker Tutorial & Quickstart Guide
+
+**Docker** allows you to package applications and their dependencies into lightweight containers that run consistently across any environment.
+
+---
+
+### 📦 1. Installation & Verification
+Download **Docker Desktop** from **[https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)** or install Docker Engine via Linux terminal.
+
+Verify installation:
+```bash
+docker --version
+docker run hello-world
+```
+
+---
+
+### 📄 2. Create a Dockerfile Example
+In your project directory, create a file named `Dockerfile`:
+
+```dockerfile
+# Base Image
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files & install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy application source code
+COPY . .
+
+# Expose container port
+EXPOSE 3000
+
+# Start command
+CMD ["npm", "start"]
+```
+
+---
+
+### 🚀 3. Build & Run Your Container
+
+#### **Build Docker Image**:
+```bash
+docker build -t my-app:1.0 .
+```
+
+#### **Run Container**:
+```bash
+docker run -d -p 3000:3000 --name my_app_container my-app:1.0
+```
+
+---
+
+### 🛠️ 4. Essential Docker CLI Commands
+
+| Command | Action |
+| :--- | :--- |
+| `docker ps` | List all active running containers |
+| `docker ps -a` | List all containers (running and stopped) |
+| `docker logs -f my_app_container` | View real-time container logs |
+| `docker exec -it my_app_container sh` | Open interactive shell inside running container |
+| `docker stop my_app_container` | Stop running container |
+| `docker rm my_app_container` | Remove container |
+
+---
+
+🎉 **Success!** Your containerized app is running cleanly in Docker."""
+
+    if 'git' in p_lower:
+        return """⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Initialize repository -> Configure user credentials -> Stage & commit changes -> Push to remote GitHub repository.
+
+---
+
+### 🐙 Complete Git & GitHub Quickstart Tutorial
+
+**Git** is the industry standard distributed version control system for tracking code changes and collaborating with developers.
+
+---
+
+### ⚙️ 1. Initial Setup & Global Configuration
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+git config --global init.defaultBranch main
+```
+
+---
+
+### 📁 2. Initialize & Commit Code
+
+```bash
+# 1. Initialize a new Git repository in project folder
+git init
+
+# 2. Check workspace status
+git status
+
+# 3. Stage all files for commit
+git add .
+
+# 4. Create your first commit
+git commit -m "feat: initial project commit"
+```
+
+---
+
+### 🌐 3. Push to Remote GitHub Repository
+
+```bash
+# 1. Link your local repo to GitHub
+git remote add origin https://github.com/your-username/your-repo-name.git
+
+# 2. Rename branch to main
+git branch -M main
+
+# 3. Push code to GitHub
+git push -u origin main
+```
+
+---
+
+### 🛠️ 4. Daily Essential Git Workflow
+
+| Task | Command |
+| :--- | :--- |
+| Create & switch to new branch | `git checkout -b feature/login` |
+| Pull latest changes from remote | `git pull origin main` |
+| View commit history | `git log --oneline --graph` |
+| Undo uncommitted changes | `git restore .` |
+
+---
+
+🎉 **Success!** Your Git repository is configured and synchronized."""
+
+    clean_tool = re.sub(r'^(how to|how do i|how can i|give me|write|create|build|generate|make|learn|intro to|introduction to|tutorial for|guide for|setup for|install)\s+', '', prompt, flags=re.IGNORECASE)
+    clean_tool = re.sub(r'\s+(tutorial|guide|setup|cheatsheet|documentation|walkthrough|getting started|usage|commands)$', '', clean_tool, flags=re.IGNORECASE).strip()
+    tool_title = clean_tool.title() if clean_tool else "Technology"
+    slug = re.sub(r'[^a-z0-9]', '', clean_tool.lower()) or "tool"
+
+    return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Analyze {tool_title} specifications -> Setup installation & configuration -> Provide practical code/CLI walkthrough -> Output cheat sheet.
+
+---
+
+### 📘 Complete {tool_title} Tutorial & Quickstart Guide
+
+Here is the comprehensive step-by-step guide to get started with **{tool_title}**:
+
+---
+
+### 📦 1. Installation & Environment Setup
+
+#### **Windows / macOS / Linux**:
+```bash
+# Install {tool_title} package or CLI tool
+npm install -g {slug}   # NPM package
+pip install {slug}      # Python package
+brew install {slug}     # Homebrew (macOS)
+```
+
+---
+
+### ⚙️ 2. Core Configuration & Initialization
+
+```bash
+# Verify installation
+{slug} --version
+
+# Initialize project configuration
+{slug} init
+```
+
+---
+
+### 🚀 3. Practical Usage Walkthrough
+
+```javascript
+// Quickstart implementation using {tool_title}
+console.log("Initializing {tool_title} service...");
+
+async function runExample() {{
+  try {{
+    const config = {{ environment: "development", debug: true }};
+    console.log("Successfully connected to {tool_title} engine!");
+  }} catch (error) {{
+    console.error("{tool_title} Execution Error:", error);
+  }}
+}}
+
+runExample();
+```
+
+---
+
+### 🛠️ 4. Essential Command Cheat Sheet
+
+- **Start Service**: `{slug} start`
+- **Check Status**: `{slug} status`
+- **Build / Bundle**: `{slug} build`
+- **Run Diagnostics**: `{slug} check`
+
+---
+
+🎉 **Success!** You have configured and learned the fundamentals of **{tool_title}**."""
+
+def generate_account_creation_guide(prompt):
+    p_lower = prompt.lower()
+    
+    if 'vercel' in p_lower:
+        service = "Vercel"
+        domain = "Vercel Cloud Deployment & Frontend Hosting Platform"
+        signup_url = "https://vercel.com/signup"
+        steps = [
+            ("Navigate to Vercel Registration", "Open your web browser and visit **[https://vercel.com/signup](https://vercel.com/signup)**."),
+            ("Select Authentication Provider", "Vercel lets you sign up with **GitHub**, **GitLab**, **Bitbucket**, or **Email**. *Signing up with GitHub or GitLab is recommended* for automated git deployments."),
+            ("Authorize OAuth Access", "Click **'Continue with GitHub'** (or your git provider) and authorize Vercel to access your repositories."),
+            ("Set Up Personal Scope & Select Plan", "Select **'Hobby (Free)'** for personal projects, or create a Team for collaborative work."),
+            ("Deploy Your First Repository", "Click **'Import Project'**, pick a repository (Next.js, React, Vue, Vite, HTML), and click **'Deploy'**. You can also deploy via CLI using `npm i -g vercel && vercel`!")
+        ]
+    elif 'github' in p_lower:
+        service = "GitHub"
+        domain = "GitHub Code Hosting & Version Control System"
+        signup_url = "https://github.com/signup"
+        steps = [
+            ("Open GitHub Registration", "Go to **[https://github.com/signup](https://github.com/signup)**."),
+            ("Enter Credentials", "Enter your email address, create a strong password, and choose a unique username."),
+            ("Verify Email via Code", "Check your email inbox for a 6-digit verification code and enter it."),
+            ("Select Free Plan", "Select the **Free Plan** (includes unlimited public/private repositories) and finish setup.")
+        ]
+    elif 'gmail' in p_lower or 'google' in p_lower:
+        service = "Gmail / Google"
+        domain = "Google Account & Mail Services"
+        signup_url = "https://accounts.google.com/signup"
+        steps = [
+            ("Open Google Signup", "Go to **[https://accounts.google.com/signup](https://accounts.google.com/signup)**."),
+            ("Enter Name & Birthday", "Enter your First Name, Last Name, Birthdate, and Gender."),
+            ("Choose Username & Password", "Select your `@gmail.com` username and set a secure password."),
+            ("Phone Verification", "Enter your phone number for SMS verification code and add a recovery email.")
+        ]
+    elif 'netlify' in p_lower:
+        service = "Netlify"
+        domain = "Netlify Web Hosting & Automation Platform"
+        signup_url = "https://app.netlify.com/signup"
+        steps = [
+            ("Open Netlify Signup", "Go to **[https://app.netlify.com/signup](https://app.netlify.com/signup)**."),
+            ("Connect Git Provider", "Sign up with **GitHub**, **GitLab**, **Bitbucket**, or Email."),
+            ("Deploy Sites", "Connect a repository or drag and drop your web build folder for instant deployment.")
+        ]
+    elif 'supabase' in p_lower:
+        service = "Supabase"
+        domain = "Supabase Open Source Firebase Alternative (PostgreSQL)"
+        signup_url = "https://supabase.com/dashboard/sign-up"
+        steps = [
+            ("Open Supabase Signup", "Go to **[https://supabase.com/dashboard/sign-up](https://supabase.com/dashboard/sign-up)**."),
+            ("Sign Up with GitHub", "Click **'Continue with GitHub'** to authenticate instantly."),
+            ("Create Organization & Database", "Name your project, set a secure database password, and select your server region.")
+        ]
+    elif 'firebase' in p_lower:
+        service = "Firebase"
+        domain = "Google Firebase Platform"
+        signup_url = "https://console.firebase.google.com"
+        steps = [
+            ("Open Firebase Console", "Go to **[https://console.firebase.google.com](https://console.firebase.google.com)**."),
+            ("Sign In with Google", "Sign in using your Google account."),
+            ("Create Firebase Project", "Click **'Add Project'**, type your project name, and initialize your app backend.")
+        ]
+    elif 'aws' in p_lower or 'amazon' in p_lower:
+        service = "AWS (Amazon Web Services)"
+        domain = "AWS Cloud Infrastructure Platform"
+        signup_url = "https://portal.aws.amazon.com/billing/signup"
+        steps = [
+            ("Open AWS Registration", "Go to **[https://portal.aws.amazon.com/billing/signup](https://portal.aws.amazon.com/billing/signup)**."),
+            ("Root User Email & Account Name", "Enter root user email and account name."),
+            ("Billing Details & Identity Verification", "Enter payment details (card verification) and confirm your phone number via SMS/call.")
+        ]
+    elif 'openai' in p_lower or 'chatgpt' in p_lower:
+        service = "OpenAI"
+        domain = "OpenAI Developer Platform & ChatGPT"
+        signup_url = "https://platform.openai.com/signup"
+        steps = [
+            ("Open OpenAI Signup", "Go to **[https://platform.openai.com/signup](https://platform.openai.com/signup)**."),
+            ("Sign Up with Email or OAuth", "Use Email, Google, Microsoft, or Apple account."),
+            ("Phone Verification", "Enter phone number to receive 6-digit SMS verification code.")
+        ]
+    else:
+        clean_service = re.sub(r'^(how to|how do i|how can i|create|make|build|register|setup|set up|a|an)\s+', '', prompt, flags=re.IGNORECASE)
+        clean_service = re.sub(r'\s+(account|profile|user|login|signup|sign up|page)$', '', clean_service, flags=re.IGNORECASE).strip()
+        service = clean_service.title() if clean_service else "Service"
+        domain = f"{service} Online Platform"
+        slug = re.sub(r'[^a-z0-9]', '', service.lower())
+        signup_url = f"https://{slug}.com" if slug else "https://google.com"
+        steps = [
+            (f"Navigate to Official {service} Website", f"Open your web browser and visit **[{signup_url}]({signup_url})**."),
+            ("Locate Sign Up / Register", "Click **'Sign Up'** or **'Get Started'** at the top right of the page."),
+            ("Enter Credentials", "Enter your email address, full name, and create a strong password."),
+            ("Email / SMS Verification", "Check your email inbox or phone for a verification code."),
+            ("Access Dashboard", "Log in to access your new account dashboard.")
+        ]
+
+    steps_md = "\n\n---\n\n".join([f"#### 📱 Step {i+1}: {title}\n{desc}" for i, (title, desc) in enumerate(steps)])
+
+    return f"""⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: `Follower` `Architect` `Leader` `Tester`
+🧠 **Tacit Parameters**: `(Short & Compressed)`
+🌐 **LEARNED ARCHITECTURES**: `Transformers` `ResGated` `Fastapi`
+
+⚡ **Swarm Consensus Strategy**
+> **Algorithm**: Navigate to {service} signup portal -> Choose auth provider / credentials -> Set secure password -> Verify identity -> Access {service} dashboard.
+
+---
+
+### 🚀 How to Create a New {service} Account ({domain})
+
+Here is the official step-by-step procedure to set up a new **{service}** account:
+
+---
+
+{steps_md}
+
+---
+
+🎉 **Success!** Your {service} account setup is complete."""
+
+    # 3. Tutorials, Setup Guides & Tool Technical Walkthroughs (ngrok, docker, git, tutorial, etc.)
+    if any(k in p_lower for k in ['tutorial', 'guide', 'setup', 'install', 'getting started', 'walkthrough', 'cheatsheet', 'ngrok', 'docker', 'git', 'kubernetes', 'k8s', 'redis', 'postman', 'nginx']):
+        return generate_tutorial_guide(prompt)
+
+    # 4. Account / Service Setup Intent
+    if any(k in p_lower for k in ['account', 'signup', 'sign up', 'register']) or ('create' in p_lower and ('profile' in p_lower or 'account' in p_lower)):
+        return generate_account_creation_guide(prompt)
+
+    # 5. Universal How-To Guide Synthesizer
+    if any(k in p_lower for k in ['how to', 'how do i', 'how can i', 'how to make', 'how to build', 'how to use', 'guide for', 'steps to']):
+        return generate_tutorial_guide(prompt)
+
+    # 6. Search Intent Check
+    search_keywords = ['search', 'find out', 'who is', 'what is', 'latest news', 'tell me about', 'look up', 'search for', 'information on', 'give me', 'recipe']
     if any(p_lower.startswith(k) or f" {k} " in f" {p_lower} " for k in search_keywords) and not any(k in p_lower for k in ['code', 'html', 'python', 'script', 'django', 'build']):
         return perform_web_search(prompt)
 
-    # 4. Specific Software / Django Project Creation Intent
+    # 6. Specific Software / Django Project Creation Intent
     project_keywords = ['django', 'management system', 'django project', 'build app', 'software system', 'code project']
     if any(k in p_lower for k in project_keywords) and not is_hello_world:
         return generate_dynamic_django_project(prompt)

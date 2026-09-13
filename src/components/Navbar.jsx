@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Target, Lock, MessageSquare, MoreHorizontal, Menu, Sparkles, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Target, Lock, MessageSquare, MoreHorizontal, Menu, Sparkles, Check, User, LogOut } from 'lucide-react';
 import { BOTS } from '../data/botsData';
 
 export default function Navbar({ 
@@ -12,7 +12,31 @@ export default function Navbar({
   onToggleMobileSidebar 
 }) {
   const [showBotDropdown, setShowBotDropdown] = useState(false);
+  const [user, setUser] = useState(null);
   const activeBotObj = BOTS.find(b => b.id === activeAgent) || BOTS[0];
+
+  useEffect(() => {
+    const checkUser = () => {
+      const stored = localStorage.getItem('ultron_user');
+      if (stored) {
+        try { setUser(JSON.parse(stored)); } catch (e) { setUser(null); }
+      } else {
+        setUser(null);
+      }
+    };
+    checkUser();
+    window.addEventListener('storage', checkUser);
+    const interval = setInterval(checkUser, 1000);
+    return () => {
+      window.removeEventListener('storage', checkUser);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('ultron_user');
+    setUser(null);
+  };
 
   return (
     <header className="h-10 pt-[env(safe-area-inset-top)] flex items-center justify-between border-b border-white/5 bg-slate-900/60 backdrop-blur-lg z-50 select-none px-3 sm:px-6">
@@ -81,16 +105,34 @@ export default function Navbar({
       <div className="flex items-center gap-2" style={{ appRegion: 'no-drag' }}>
         {/* Desktop Buttons */}
         <div className="hidden md:flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onOpenAuth}
-            aria-label="Sign In or Sign Up"
-            className="h-7.5 px-3 rounded-full text-xs flex items-center gap-1.5 text-white bg-white/[0.04] border border-white/10 hover:bg-cyan-500/15 hover:border-cyan-400/40 transition-all cursor-pointer shadow-[0_0_12px_rgba(0,212,255,0.1)]"
-            title="Sign Up / Login"
-          >
-            <Lock className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-            <span className="font-semibold text-[11px] tracking-wide">Sign Up / Login</span>
-          </button>
+          {user ? (
+            <div className="flex items-center gap-1.5">
+              <div className="h-7.5 px-3 rounded-full text-xs flex items-center gap-1.5 text-emerald-300 bg-emerald-950/40 border border-emerald-500/30">
+                <User className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                <span className="font-semibold text-[11px] truncate max-w-[120px]">{user.name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                aria-label="Sign Out"
+                className="h-7.5 w-7.5 flex items-center justify-center rounded-full text-rose-400 hover:text-rose-200 bg-white/[0.04] border border-white/10 hover:border-rose-500/40 hover:bg-rose-950/40 transition-all cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              aria-label="Sign In or Sign Up"
+              className="h-7.5 px-3 rounded-full text-xs flex items-center gap-1.5 text-white bg-white/[0.04] border border-white/10 hover:bg-cyan-500/15 hover:border-cyan-400/40 transition-all cursor-pointer shadow-[0_0_12px_rgba(0,212,255,0.1)]"
+              title="Sign Up / Login"
+            >
+              <Lock className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+              <span className="font-semibold text-[11px] tracking-wide">Sign Up / Login</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -121,11 +163,11 @@ export default function Navbar({
         <div className="flex md:hidden items-center gap-1.5">
           <button
             type="button"
-            onClick={onOpenAuth}
-            aria-label="Sign In or Sign Up"
+            onClick={user ? handleSignOut : onOpenAuth}
+            aria-label={user ? "Sign Out" : "Sign In or Sign Up"}
             className="h-7.5 px-2.5 rounded-full text-xs flex items-center gap-1 text-white bg-white/[0.04] border border-white/10 active:bg-white/15"
           >
-            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+            {user ? <LogOut className="w-3.5 h-3.5 text-rose-400" /> : <Lock className="w-3.5 h-3.5 text-cyan-400" />}
           </button>
 
           <button

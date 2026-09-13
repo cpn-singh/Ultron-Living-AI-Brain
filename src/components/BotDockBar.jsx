@@ -1,25 +1,10 @@
 import React from 'react';
 import { TrendingUp, Code2, Layers, MessageSquare, Sparkles, ExternalLink } from 'lucide-react';
 
-export default function BotDockBar({ activeTab, setActiveTab, onLaunchTradeSwarm, onLaunchCodeSwarm }) {
+export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm }) {
   return (
-    <div className="fixed bottom-7 inset-x-0 z-30 flex flex-col items-center gap-2.5 pointer-events-none px-4 select-none">
-      <div className="pointer-events-auto flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-full bg-[#02040a]/85 backdrop-blur-[12px] border border-[rgba(0,240,255,0.18)] shadow-[0_12px_48px_rgba(0,0,0,0.95),0_0_30px_rgba(0,240,255,0.15)]">
-        {/* TRADE Swarm Trigger Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onLaunchTradeSwarm) onLaunchTradeSwarm();
-            else setActiveTab('swarm');
-          }}
-          className="px-5 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:via-teal-400 hover:to-emerald-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer transition-all active:scale-95"
-          title="Launch Trade Swarm (10 Quant Agents)"
-          aria-label="TRADE Swarm"
-        >
-          <TrendingUp className="w-4 h-4 fill-slate-950" />
-          <span>TRADE</span>
-        </button>
-
+    <div className="fixed bottom-4 sm:bottom-6 inset-x-0 z-30 flex flex-col items-center gap-2.5 pointer-events-none px-2 sm:px-4 select-none">
+      <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-3 p-1.5 sm:p-2.5 rounded-full bg-[#02040a]/90 backdrop-blur-[14px] border border-[rgba(0,240,255,0.2)] shadow-[0_12px_48px_rgba(0,0,0,0.95),0_0_30px_rgba(0,240,255,0.15)]">
         {/* Google Colab Redirect Button */}
         <a
           href="https://colab.research.google.com"
