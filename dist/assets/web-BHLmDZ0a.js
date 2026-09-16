@@ -1,1 +1,0 @@
-import{W as r}from"./index-06PAUpTl.js";import"./lucide-vNOr1s4s.js";import"./vendor-CLcu9BSa.js";import"./three-0QL1cu59.js";class l extends r{async canOpenUrl(e){return{value:!0}}async openUrl(e){return window.open(e.url,"_blank"),{completed:!0}}}export{l as AppLauncherWeb};

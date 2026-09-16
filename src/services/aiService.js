@@ -114,26 +114,34 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
 
   // 4b. Try Cloud NVIDIA NIM API
   const nvidiaKey = localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
-  try {
-    const response = await safeFetchPost('https://integrate.api.nvidia.com/v1/chat/completions', {
-      model: 'meta/llama-3.2-11b-vision-instruct',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: trimmed }
-      ],
-      temperature: 0.3,
-      max_tokens: 1200
-    }, {
-      'Authorization': `Bearer ${nvidiaKey}`
-    });
+  const nvidiaModels = ['meta/llama-3.2-11b-vision-instruct', 'meta/llama-3.2-90b-vision-instruct', 'nvidia/nemotron-4-340b-instruct'];
+  const nvidiaEndpoints = ['/nvidia-api/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
 
-    if (response.ok) {
-      const data = await response.json();
-      const answer = data.choices?.[0]?.message?.content;
-      if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+  for (const endpoint of nvidiaEndpoints) {
+    for (const modelId of nvidiaModels) {
+      try {
+        const response = await safeFetchPost(endpoint, {
+          model: modelId,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: trimmed }
+          ],
+          temperature: 0.3,
+          max_tokens: 1200
+        }, {
+          'Authorization': `Bearer ${nvidiaKey}`,
+          'Accept': 'application/json'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const answer = data.choices?.[0]?.message?.content;
+          if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+        }
+      } catch (err) {
+        console.warn(`[AI Service] Cloud NVIDIA NIM (${modelId} on ${endpoint}) unavailable:`, err.message);
+      }
     }
-  } catch (err) {
-    console.warn('[AI Service] Cloud NVIDIA NIM API unavailable:', err.message);
   }
 
   // 5. Intelligent Human Companion Fallback Response
@@ -1222,4 +1230,37 @@ export async function solveBenchmarkQuestion(questionData) {
       { agent: "Aegis", role: "Consensus", action: `Achieved verified accuracy of ${questionData.targetSurpass}.` }
     ]
   };
+}
+
+export async function testNvidiaConnection(apiKey) {
+  const DEFAULT_NVIDIA_KEY = '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';
+  const keyToUse = apiKey || localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
+  const endpoints = ['/nvidia-api/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
+  let lastErr = null;
+
+  for (const ep of endpoints) {
+    try {
+      const response = await safeFetchPost(ep, {
+        model: 'meta/llama-3.2-11b-vision-instruct',
+        messages: [{ role: 'user', content: 'Hi' }],
+        temperature: 0.1,
+        max_tokens: 16
+      }, {
+        'Authorization': `Bearer ${keyToUse}`,
+        'Accept': 'application/json'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, message: `Connected to NVIDIA NIM (${data.model || 'Llama 3.2 Vision'})` };
+      } else {
+        const errorText = await response.text();
+        lastErr = `NVIDIA API Error (${response.status}): ${errorText.slice(0, 100)}`;
+      }
+    } catch (err) {
+      lastErr = `Network Error: ${err.message}`;
+    }
+  }
+
+  return { success: false, message: lastErr || 'Failed to connect to NVIDIA API' };
 }

@@ -4,6 +4,16 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: './',
+    server: {
+    proxy: {
+      '/nvidia-api': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/nvidia-api/, ''),
+      },
+    },
+  },
   build: {
     chunkSizeWarningLimit: 1200,
     rollupOptions: {

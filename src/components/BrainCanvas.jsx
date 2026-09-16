@@ -12,10 +12,27 @@ export default function BrainCanvas() {
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
 
+        // Responsive Camera Z calculation so the Atom fits any screen size/aspect ratio
+    function getResponsiveCameraZ(w, h) {
+      const aspect = w / h;
+      const radius = 285; // Boundary radius of outer orbits
+      const vFOV = (55 * Math.PI) / 180;
+      if (aspect < 1) {
+        // Mobile / Portrait screen orientation
+        return Math.max(540, (radius / (aspect * Math.tan(vFOV / 2))) * 1.12);
+      } else {
+        // Landscape screen orientation
+        if (w < 640) return 780;
+        if (w < 1024) return 640;
+        return 520;
+      }
+    }
+    const initialCameraZ = getResponsiveCameraZ(width, height);
+
     // ── 1. SCENE & CAMERA SETUP ─────────────────────────────────────────
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 2000);
-    camera.position.set(0, 0, 520);
+     const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 3000);
+    camera.position.set(0, 0, initialCameraZ);
 
     let renderer;
     try {
@@ -28,15 +45,15 @@ export default function BrainCanvas() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
 
-    // ── ORBIT CONTROLS (Full 360° Drag Rotate & Scroll Zoom) ───────────
+    // ── ORBIT CONTROLS (Full 360° Drag Rotate & Scroll/Pinch Zoom) ──────
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enableZoom = true;
     controls.zoomSpeed = 1.2;
     controls.enablePan = false;
-    controls.minDistance = 200;
-    controls.maxDistance = 900;
+    controls.minDistance = 150;
+    controls.maxDistance = 1400;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.2;
 
@@ -276,15 +293,17 @@ export default function BrainCanvas() {
 
     // Toolbar navigation event listeners
     const handleZoomIn = () => {
-      camera.position.z = THREE.MathUtils.clamp(camera.position.z - 40, 200, 900);
+       camera.position.z = THREE.MathUtils.clamp(camera.position.z - 40, 150, 1400);
       controls.update();
     };
     const handleZoomOut = () => {
-      camera.position.z = THREE.MathUtils.clamp(camera.position.z + 40, 200, 900);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z + 40, 150, 1400);
       controls.update();
     };
     const handleResetView = () => {
-      camera.position.set(0, 0, 520);
+      const curW = container.clientWidth || window.innerWidth;
+      const curH = container.clientHeight || window.innerHeight;
+      camera.position.set(0, 0, getResponsiveCameraZ(curW, curH));
       controls.target.set(0, 0, 0);
       controls.update();
     };
@@ -336,7 +355,7 @@ export default function BrainCanvas() {
 
   return (
     <div className="relative w-full h-full brain-canvas select-none overflow-hidden bg-[radial-gradient(ellipse_at_40%_50%,_#1a2a3a_0%,_#0d1a24_45%,_#070f17_100%)] pointer-events-auto">
-      {/* 3D Rotating Atom Canvas with OrbitControls (Drag to rotate, Scroll wheel to zoom, Zero text/labels) */}
+      {/* Responsive 3D Atom Model (Scales automatically on mobile/tablets, allow manual zoom in/out) */}
       <div ref={mountRef} className="w-full h-full pointer-events-auto" style={{ touchAction: 'none' }} />
     </div>
   );
