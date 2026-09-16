@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles } from 'lucide-react';
+import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
+import { testNvidiaConnection } from '../services/aiService';
 
 export default function SettingsModal({ onClose }) {
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
@@ -10,6 +11,8 @@ export default function SettingsModal({ onClose }) {
   const [voiceSpeed, setVoiceSpeed] = useState(() => localStorage.getItem('ultron_voice_speed') || '1.0');
   const [humanCompanion, setHumanCompanion] = useState(() => localStorage.getItem('ultron_human_companion') !== 'false');
   const [statusMsg, setStatusMsg] = useState('');
+  const [nvidiaTesting, setNvidiaTesting] = useState(false);
+  const [nvidiaStatus, setNvidiaStatus] = useState('');
 
   const handleSave = () => {
     localStorage.setItem('ultron_ai_model', activeModel);
@@ -74,18 +77,44 @@ export default function SettingsModal({ onClose }) {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK)</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK)</label>
+                {nvidiaStatus && (
+                  <span className={`text-[10px] font-mono ${nvidiaStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {nvidiaStatus}
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   type="password"
                   value={nvidiaKey}
-                  onChange={(e) => setNvidiaKey(e.target.value)}
-                  placeholder="NVIDIA NIM API Key..."
+                  onChange={(e) => {
+                    setNvidiaKey(e.target.value);
+                    setNvidiaStatus('');
+                  }}
+                  placeholder="NVIDIA NIM API Key (nvapi-...)"
                   className="flex-1 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 font-mono focus:outline-none focus:border-rose-500"
                 />
-                <span className="px-3 py-2 rounded-xl bg-rose-950/40 border border-rose-800/40 text-rose-300 text-[10px] font-mono flex items-center">
-                  LLAMA 3.2
-                </span>
+                <button
+                  type="button"
+                  disabled={nvidiaTesting}
+                  onClick={async () => {
+                    setNvidiaTesting(true);
+                    setNvidiaStatus('Connecting...');
+                    const res = await testNvidiaConnection(nvidiaKey);
+                    setNvidiaTesting(false);
+                    setNvidiaStatus(res.message);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Test NVIDIA NIM Connection"
+                >
+                  {nvidiaTesting ? (
+                    <RefreshCw className="w-3 h-3 animate-spin text-rose-400" />
+                  ) : (
+                    <span>Test</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>

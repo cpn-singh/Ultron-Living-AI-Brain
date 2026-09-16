@@ -65,16 +65,24 @@ export async function generateAIResponse(userPrompt, botId = 'orchestrator', con
 
   // 3. Try Local Python Backend Server (http://127.0.0.1:8000)
   try {
-    const pythonRes = await safeFetchPost(`${PYTHON_BACKEND_URL}/api/chat`, { prompt: trimmed, botId: selectedBot.id });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 800);
+    const pythonRes = await fetch(`${PYTHON_BACKEND_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: trimmed, botId: selectedBot.id }),
+      signal: controller.signal
+    }).catch(() => null);
+    clearTimeout(timeoutId);
 
-    if (pythonRes.ok) {
+    if (pythonRes && pythonRes.ok) {
       const pyData = await pythonRes.json();
       if (pyData.success && pyData.response) {
         return triggerColabCopyAndRedirect(pyData.response);
       }
     }
   } catch (err) {
-    // Python server offline or starting up
+    // Python server offline
   }
 
   // 4. Cloud API Inference: Primary -> Gemini API, Secondary -> NVIDIA NIM API
@@ -93,23 +101,27 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
 
   // 4a. Try Cloud Gemini API
   const geminiKey = localStorage.getItem('ultron_gemini_key') || DEFAULT_GEMINI_KEY;
-  try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`;
-    const response = await safeFetchPost(geminiUrl, {
-      contents: [
-        { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
-      ]
-    }, {
-      'Content-Type': 'application/json'
-    });
+  const geminiModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
 
-    if (response.ok) {
-      const data = await response.json();
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+  for (const modelName of geminiModels) {
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+      const response = await safeFetchPost(geminiUrl, {
+        contents: [
+          { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
+        ]
+      }, {
+        'Content-Type': 'application/json'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+      }
+    } catch (err) {
+      console.warn(`[AI Service] Cloud Gemini API (${modelName}) unavailable:`, err.message);
     }
-  } catch (err) {
-    console.warn('[AI Service] Cloud Gemini API unavailable, falling back to NVIDIA NIM:', err.message);
   }
 
   // 4b. Try Cloud NVIDIA NIM API

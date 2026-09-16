@@ -12,11 +12,12 @@ export default function BrainCanvas() {
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
 
-        // Responsive Camera Z calculation so the Atom fits any screen size/aspect ratio
+    // Responsive Camera Z calculation so the Atom fits any screen size/aspect ratio
     function getResponsiveCameraZ(w, h) {
       const aspect = w / h;
       const radius = 285; // Boundary radius of outer orbits
       const vFOV = (55 * Math.PI) / 180;
+
       if (aspect < 1) {
         // Mobile / Portrait screen orientation
         return Math.max(540, (radius / (aspect * Math.tan(vFOV / 2))) * 1.12);
@@ -27,11 +28,12 @@ export default function BrainCanvas() {
         return 520;
       }
     }
+
     const initialCameraZ = getResponsiveCameraZ(width, height);
 
     // ── 1. SCENE & CAMERA SETUP ─────────────────────────────────────────
     const scene  = new THREE.Scene();
-     const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 3000);
+    const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 3000);
     camera.position.set(0, 0, initialCameraZ);
 
     let renderer;
@@ -293,7 +295,7 @@ export default function BrainCanvas() {
 
     // Toolbar navigation event listeners
     const handleZoomIn = () => {
-       camera.position.z = THREE.MathUtils.clamp(camera.position.z - 40, 150, 1400);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z - 40, 150, 1400);
       controls.update();
     };
     const handleZoomOut = () => {

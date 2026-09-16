@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: './',
-    server: {
+  server: {
     proxy: {
       '/nvidia-api': {
         target: 'https://integrate.api.nvidia.com',
