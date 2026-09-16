@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Atom Model | Interactive 3D Quantum Particle Structure</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000511;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            color: #eaf5ff;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, #031738 0%, #010a1c 50%, #00040d 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+
+        /* =========================================================
+           GLASS UI PANELS
+        ========================================================= */
+
+        .glass-panel {
+            position: fixed;
+            background: linear-gradient(135deg, rgba(4, 25, 56, 0.75), rgba(2, 14, 33, 0.55));
+            border: 1px solid rgba(0, 210, 255, 0.35);
+            border-radius: 20px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 
+                0 8px 32px 0 rgba(0, 10, 30, 0.5),
+                0 0 20px rgba(0, 180, 255, 0.15),
+                inset 0 0 15px rgba(0, 200, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 10;
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 230, 255, 0.6);
+            box-shadow: 
+                0 10px 40px 0 rgba(0, 15, 45, 0.6),
+                0 0 30px rgba(0, 210, 255, 0.25),
+                inset 0 0 20px rgba(0, 220, 255, 0.12);
+        }
+
+
+        /* =========================================================
+           TOP LEFT - TITLE BOX
+        ========================================================= */
+
+        .title-box {
+            top: 24px;
+            left: 28px;
+            width: 440px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Animated Glowing Atom Logo */
+        .atom-logo {
+            width: 76px;
+            height: 76px;
+            position: relative;
+            margin-right: 20px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .atom-logo .core-spark {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 
+                0 0 10px #ffffff,
+                0 0 22px #00f0ff,
+                0 0 35px #7b2cbf;
+            animation: pulseCore 2s ease-in-out infinite alternate;
+        }
+
+        .atom-logo .ring {
+            position: absolute;
+            width: 66px;
+            height: 28px;
+            border: 2px solid rgba(0, 220, 255, 0.9);
+            border-radius: 50%;
+            box-shadow: 
+                0 0 10px rgba(0, 220, 255, 0.8),
+                inset 0 0 8px rgba(0, 220, 255, 0.4);
+        }
+
+        .atom-logo .ring:nth-child(1) {
+            transform: rotate(0deg);
+            animation: spinRing1 6s linear infinite;
+        }
+
+        .atom-logo .ring:nth-child(2) {
+            transform: rotate(60deg);
+            animation: spinRing2 8s linear infinite;
+        }
+
+        .atom-logo .ring:nth-child(3) {
+            transform: rotate(-60deg);
+            animation: spinRing3 7s linear infinite;
+        }
+
+        @keyframes spinRing1 {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.05); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        @keyframes spinRing2 {
+            0% { transform: rotate(60deg) scale(1.03); }
+            50% { transform: rotate(240deg) scale(0.97); }
+            100% { transform: rotate(420deg) scale(1.03); }
+        }
+
+        @keyframes spinRing3 {
+            0% { transform: rotate(-60deg) scale(0.98); }
+            50% { transform: rotate(120deg) scale(1.04); }
+            100% { transform: rotate(300deg) scale(0.98); }
+        }
+
+        @keyframes pulseCore {
+            0% { transform: scale(0.85); box-shadow: 0 0 8px #fff, 0 0 18px #00f0ff; }
+            100% { transform: scale(1.25); box-shadow: 0 0 14px #fff, 0 0 32px #00f0ff, 0 0 45px #b5179e; }
+        }
+
+        .title-text-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 12px rgba(0, 210, 255, 0.6);
+            background: linear-gradient(90deg, #ffffff, #a5f3fc, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            margin-top: 4px;
+            color: #38bdf8;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+
+        /* =========================================================
+           TOP RIGHT - STATS & ELECTRON PANEL
+        ========================================================= */
+
+        .electron-box {
+            top: 24px;
+            right: 28px;
+            padding: 12px 22px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .electron-indicator {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .electron-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 
+                0 0 10px #00f0ff,
+                0 0 20px #00f0ff,
+                0 0 30px #0088ff;
+            animation: pulseGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        .electron-ring-pulse {
+            position: absolute;
+            inset: -4px;
+            border: 2px solid rgba(0, 240, 255, 0.6);
+            border-radius: 50%;
+            animation: pingRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes pingRing {
+            75%, 100% {
+                transform: scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(0.9); }
+            100% { transform: scale(1.2); }
+        }
+
+        .electron-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .electron-name {
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .electron-count {
+            color: #38bdf8;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+
+        /* =========================================================
+           BOTTOM LEFT - CONTROLS
+        ========================================================= */
+
+        .controls {
+            left: 28px;
+            bottom: 28px;
+            width: 320px;
+            padding: 18px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .mouse-icon {
+            position: relative;
+            width: 28px;
+            height: 38px;
+            flex-shrink: 0;
+            border: 2px solid #38bdf8;
+            border-radius: 14px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+        }
+
+        .mouse-icon::before {
+            content: "";
+            position: absolute;
+            width: 4px;
+            height: 8px;
+            top: 6px;
+            left: 10px;
+            border-radius: 4px;
+            background: #00f0ff;
+            box-shadow: 0 0 8px #00f0ff;
+            animation: scrollWheel 1.8s infinite;
+        }
+
+        @keyframes scrollWheel {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(10px); }
+        }
+
+        .control-title {
+            color: #f1f5f9;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .control-description {
+            color: #38bdf8;
+            font-size: 13px;
+        }
+
+
+        /* =========================================================
+           BOTTOM RIGHT - PRESETS / TOGGLES
+        ========================================================= */
+
+        .action-bar {
+            right: 28px;
+            bottom: 28px;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-toggle {
+            background: rgba(0, 180, 255, 0.12);
+            border: 1px solid rgba(0, 220, 255, 0.4);
+            color: #e0f2fe;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-toggle:hover {
+            background: rgba(0, 210, 255, 0.28);
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            color: #ffffff;
+        }
+
+        .btn-toggle.active {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+        }
+
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .title-box {
+                top: 14px;
+                left: 14px;
+                width: calc(100% - 28px);
+                padding: 12px 16px;
+            }
+            .title { font-size: 20px; }
+            .subtitle { font-size: 11px; }
+            .electron-box {
+                top: 96px;
+                right: 14px;
+            }
+            .controls {
+                left: 14px;
+                bottom: 14px;
+                width: 240px;
+                padding: 14px;
+            }
+            .action-bar {
+                right: 14px;
+                bottom: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- TITLE PANEL -->
+    <div class="glass-panel title-box">
+        <div class="atom-logo">
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="ring"></div>
+            <div class="core-spark"></div>
+        </div>
+        <div class="title-text-container">
+            <div class="title">Atom Model</div>
+            <div class="subtitle">Quantum 3D Particle Dynamics</div>
+        </div>
+    </div>
+
+    <!-- ELECTRON STATS PANEL -->
+    <div class="glass-panel electron-box">
+        <div class="electron-indicator">
+            <div class="electron-dot"></div>
+            <div class="electron-ring-pulse"></div>
+        </div>
+        <div class="electron-info">
+            <div class="electron-name">Quantum Core</div>
+            <div class="electron-count">250+ Active Particles</div>
+        </div>
+    </div>
+
+    <!-- CONTROLS PANEL -->
+    <div class="glass-panel controls">
+        <div class="control-row">
+            <div class="mouse-icon"></div>
+            <div>
+                <div class="control-title">Rotate Structure</div>
+                <div class="control-description">Drag left mouse button</div>
+            </div>
+        </div>
+        <div class="control-row">
+            <div class="mouse-icon"></div>
+            <div>
+                <div class="control-title">Zoom Perspective</div>
+                <div class="control-description">Scroll mouse wheel</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div class="glass-panel action-bar">
+        <button class="btn-toggle active" id="btn-glow">
+            <span>✨ Hyper Glow</span>
+        </button>
+        <button class="btn-toggle" id="btn-speed">
+            <span>⚡ Fast Motion</span>
+        </button>
+    </div>
+
+
+    <!-- THREE.JS -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+    <script>
+        // =========================================================
+        // GLOW TEXTURE GENERATOR (Procedural Radial Soft Light Flare)
+        // =========================================================
+        function createGlowTexture(size = 128) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            const center = size / 2;
+            const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
+
+            gradient.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+            gradient.addColorStop(0.15, 'rgba(210, 245, 255, 0.95)');
+            gradient.addColorStop(0.35, 'rgba(0, 212, 255, 0.6)');
+            gradient.addColorStop(0.65, 'rgba(0, 110, 255, 0.2)');
+            gradient.addColorStop(1.0, 'rgba(0, 30, 100, 0.0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        const glowTexture = createGlowTexture(128);
+
+
+        // =========================================================
+        // SCENE & CAMERA SETUP
+        // =========================================================
+        const container = document.getElementById("canvas-container");
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            3000
+        );
+        camera.position.set(0, 0, 520);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference: "high-performance"
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        container.appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x112244, 1.5);
+        scene.add(ambientLight);
+
+        const coreLight1 = new THREE.PointLight(0x00f0ff, 4, 450);
+        coreLight1.position.set(0, 0, 0);
+        scene.add(coreLight1);
+
+        const coreLight2 = new THREE.PointLight(0xa855f7, 3, 350);
+        coreLight2.position.set(0, 0, 0);
+        scene.add(coreLight2);
+
+
+        // =========================================================
+        // MAIN ATOM GROUP
+        // =========================================================
+        const atom = new THREE.Group();
+        scene.add(atom);
+
+
+        // =========================================================
+        // REALISTIC NUCLEUS (Protons & Neutrons Cluster)
+        // =========================================================
+        const nucleusGroup = new THREE.Group();
+        atom.add(nucleusGroup);
+
+        const NUCLEUS_PARTICLE_COUNT = 75;
+        const nucleusMeshGeometry = new THREE.SphereGeometry(7.5, 20, 20);
+
+        const protonMaterial = new THREE.MeshStandardMaterial({
+            color: 0x00e5ff,
+            emissive: 0x00a2ff,
+            emissiveIntensity: 0.8,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+
+        const neutronMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc084fc,
+            emissive: 0x7e22ce,
+            emissiveIntensity: 0.7,
+            roughness: 0.3,
+            metalness: 0.6
+        });
+
+        const nucleusPositions = [];
+
+        for (let i = 0; i < NUCLEUS_PARTICLE_COUNT; i++) {
+            const isProton = Math.random() > 0.45;
+            const mesh = new THREE.Mesh(
+                nucleusMeshGeometry,
+                isProton ? protonMaterial : neutronMaterial
+            );
+
+            // Sphere packing inside nucleus radius ~ 38
+            const r = Math.pow(Math.random(), 0.5) * 38;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+
+            mesh.position.set(x, y, z);
+            mesh.scale.setScalar(0.75 + Math.random() * 0.5);
+
+            nucleusGroup.add(mesh);
+            nucleusPositions.push({ mesh, basePos: new THREE.Vector3(x, y, z), phase: Math.random() * Math.PI * 2 });
+        }
+
+
+        // =========================================================
+        // VOLUMETRIC NUCLEUS GLOW HALO
+        // =========================================================
+        const haloGeometry = new THREE.SphereGeometry(65, 32, 32);
+        const haloMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00d8ff,
+            transparent: true,
+            opacity: 0.18,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const nucleusHalo = new THREE.Mesh(haloGeometry, haloMaterial);
+        nucleusGroup.add(nucleusHalo);
+
+        const innerHaloGeom = new THREE.SphereGeometry(42, 32, 32);
+        const innerHaloMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.35,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const innerHalo = new THREE.Mesh(innerHaloGeom, innerHaloMat);
+        nucleusGroup.add(innerHalo);
+
+
+        // =========================================================
+        // HIGH-DENSITY PARTICLE CLOUD (Quantum Wavefunction)
+        // =========================================================
+        const PARTICLE_COUNT = 280;
+        const particlePositions = [];
+        const particleData = [];
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
+            const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+            const theta = goldenAngle * i;
+
+            const radius = 130 + Math.random() * 90;
+            const x = Math.cos(theta) * radiusAtY * radius;
+            const py = y * radius;
+            const z = Math.sin(theta) * radiusAtY * radius;
+
+            particlePositions.push(x, py, z);
+            particleData.push({ x, y: py, z, radius });
+        }
+
+        const particleGeometry = new THREE.BufferGeometry();
+        particleGeometry.setAttribute("position", new THREE.Float32BufferAttribute(particlePositions, 3));
+
+        // Core Glowing Particles
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0x7dd3fc,
+            size: 9,
+            map: glowTexture,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            sizeAttenuation: true
+        });
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        atom.add(particles);
+
+        // Soft Atmospheric Glow Particles
+        const atmosphericMaterial = new THREE.PointsMaterial({
+            color: 0x0284c7,
+            size: 22,
+            map: glowTexture,
+            transparent: true,
+            opacity: 0.35,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            sizeAttenuation: true
+        });
+        const atmosphericParticles = new THREE.Points(particleGeometry, atmosphericMaterial);
+        atom.add(atmosphericParticles);
+
+
+        // =========================================================
+        // NETWORK CONNECTIONS (Quantum Entanglement Web)
+        // =========================================================
+        const networkPositions = [];
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const p1 = particleData[i];
+            const nearby = [];
+
+            for (let j = 0; j < PARTICLE_COUNT; j++) {
+                if (i === j) continue;
+                const p2 = particleData[j];
+                const dx = p1.x - p2.x;
+                const dy = p1.y - p2.y;
+                const dz = p1.z - p2.z;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist < 65) {
+                    nearby.push({ dist, p: p2 });
+                }
+            }
+
+            nearby.sort((a, b) => a.dist - b.dist);
+            const limit = Math.min(2, nearby.length);
+
+            for (let k = 0; k < limit; k++) {
+                const p2 = nearby[k].p;
+                networkPositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+            }
+        }
+
+        const networkGeometry = new THREE.BufferGeometry();
+        networkGeometry.setAttribute("position", new THREE.Float32BufferAttribute(networkPositions, 3));
+
+        const networkMaterial = new THREE.LineBasicMaterial({
+            color: 0x0284c7,
+            transparent: true,
+            opacity: 0.25,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const network = new THREE.LineSegments(networkGeometry, networkMaterial);
+        atom.add(network);
+
+
+        // =========================================================
+        // GLOWING ORBIT RINGS & TUBE SHELLS
+        // =========================================================
+        const orbitGroup = new THREE.Group();
+        atom.add(orbitGroup);
+
+        function createGlowingOrbit({ radiusX, radiusY, rotationX, rotationY, rotationZ, color, opacity }) {
+            const points = [];
+            const segments = 240;
+
+            for (let i = 0; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const x = Math.cos(angle) * radiusX;
+                const y = Math.sin(angle) * radiusY;
+                points.push(new THREE.Vector3(x, y, 0));
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+            // Sharp inner core line
+            const lineMaterial = new THREE.LineBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: opacity,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const line = new THREE.Line(geometry, lineMaterial);
+            line.rotation.set(rotationX, rotationY, rotationZ);
+
+            // Soft aura line
+            const auraMaterial = new THREE.LineBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: opacity * 0.35,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const aura = new THREE.Line(geometry.clone(), auraMaterial);
+            aura.scale.set(1.02, 1.02, 1.02);
+            aura.rotation.copy(line.rotation);
+
+            orbitGroup.add(aura);
+            orbitGroup.add(line);
+
+            return { line, radiusX, radiusY };
+        }
+
+        const orbits = [
+            createGlowingOrbit({ radiusX: 275, radiusY: 115, rotationX: Math.PI * 0.49, rotationY: Math.PI * 0.03, rotationZ: Math.PI * 0.02, color: 0x00f0ff, opacity: 0.9 }),
+            createGlowingOrbit({ radiusX: 265, radiusY: 118, rotationX: Math.PI * 0.34, rotationY: Math.PI * 0.16, rotationZ: Math.PI * 0.19, color: 0x38bdf8, opacity: 0.8 }),
+            createGlowingOrbit({ radiusX: 268, radiusY: 119, rotationX: -Math.PI * 0.33, rotationY: Math.PI * 0.34, rotationZ: -Math.PI * 0.11, color: 0x818cf8, opacity: 0.75 }),
+            createGlowingOrbit({ radiusX: 270, radiusY: 110, rotationX: Math.PI * 0.63, rotationY: -Math.PI * 0.18, rotationZ: Math.PI * 0.27, color: 0x0284c7, opacity: 0.8 }),
+            createGlowingOrbit({ radiusX: 255, radiusY: 120, rotationX: Math.PI * 0.14, rotationY: Math.PI * 0.61, rotationZ: Math.PI * 0.07, color: 0xc084fc, opacity: 0.7 }),
+            createGlowingOrbit({ radiusX: 250, radiusY: 105, rotationX: -Math.PI * 0.17, rotationY: -Math.PI * 0.54, rotationZ: Math.PI * 0.24, color: 0xf472b6, opacity: 0.65 })
+        ];
+
+
+        // =========================================================
+        // HIGH-GLOW ELECTRONS WITH TRAILING LIGHT PARTICLES
+        // =========================================================
+        const orbitParticleGroup = new THREE.Group();
+        atom.add(orbitParticleGroup);
+
+        const orbitParticleData = [];
+
+        function addElectron(orbit, angle, color, size, speed) {
+            // Main glowing sphere
+            const geom = new THREE.SphereGeometry(size, 16, 16);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: color,
+                emissiveIntensity: 2.0,
+                roughness: 0.1
+            });
+            const particle = new THREE.Mesh(geom, mat);
+
+            // Outer Sprite Glow
+            const spriteMat = new THREE.SpriteMaterial({
+                map: glowTexture,
+                color: color,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending
+            });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(size * 7, size * 7, 1);
+            particle.add(sprite);
+
+            orbitParticleGroup.add(particle);
+
+            orbitParticleData.push({
+                particle,
+                orbit,
+                angle,
+                speed,
+                trailPositions: []
+            });
+        }
+
+        orbits.forEach((orbit, index) => {
+            const count = index < 3 ? 6 : 4;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+                const isPurple = Math.random() < 0.3;
+                const color = isPurple ? 0xd8b4fe : 0x38bdf8;
+                addElectron(orbit, angle, color, 2.5 + Math.random() * 1.2, 0.002 + Math.random() * 0.003);
+            }
+        });
+
+
+        // =========================================================
+        // BACKGROUND COSMIC DUST
+        // =========================================================
+        const DUST_COUNT = 450;
+        const dustPositions = [];
+
+        for (let i = 0; i < DUST_COUNT; i++) {
+            dustPositions.push(
+                (Math.random() - 0.5) * 1800,
+                (Math.random() - 0.5) * 1800,
+                (Math.random() - 0.5) * 1800
+            );
+        }
+
+        const dustGeom = new THREE.BufferGeometry();
+        dustGeom.setAttribute("position", new THREE.Float32BufferAttribute(dustPositions, 3));
+
+        const dustMat = new THREE.PointsMaterial({
+            color: 0x38bdf8,
+            size: 4,
+            map: glowTexture,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const dustParticles = new THREE.Points(dustGeom, dustMat);
+        scene.add(dustParticles);
+
+
+        // =========================================================
+        // INTERACTIVE MOUSE / TOUCH CONTROLS
+        // =========================================================
+        let isDragging = false;
+        let previousMouseX = 0, previousMouseY = 0;
+        let velocityX = 0, velocityY = 0;
+        let speedMultiplier = 1.0;
+
+        renderer.domElement.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            isDragging = true;
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+            renderer.domElement.setPointerCapture(event.pointerId);
+        });
+
+        renderer.domElement.addEventListener("pointermove", event => {
+            if (!isDragging) return;
+            const dx = event.clientX - previousMouseX;
+            const dy = event.clientY - previousMouseY;
+
+            atom.rotation.y += dx * 0.005;
+            atom.rotation.x += dy * 0.005;
+
+            velocityY = dx * 0.0008;
+            velocityX = dy * 0.0008;
+
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+        });
+
+        renderer.domElement.addEventListener("pointerup", event => {
+            isDragging = false;
+            try { renderer.domElement.releasePointerCapture(event.pointerId); } catch(e) {}
+        });
+
+        renderer.domElement.addEventListener("pointercancel", () => { isDragging = false; });
+
+        // Wheel Zoom
+        renderer.domElement.addEventListener("wheel", event => {
+            event.preventDefault();
+            camera.position.z += event.deltaY * 0.4;
+            camera.position.z = THREE.MathUtils.clamp(camera.position.z, 220, 900);
+        }, { passive: false });
+
+
+        // =========================================================
+        // UI TOGGLES
+        // =========================================================
+        const btnGlow = document.getElementById("btn-glow");
+        const btnSpeed = document.getElementById("btn-speed");
+
+        let hyperGlowActive = true;
+        btnGlow.addEventListener("click", () => {
+            hyperGlowActive = !hyperGlowActive;
+            btnGlow.classList.toggle("active", hyperGlowActive);
+            particleMaterial.size = hyperGlowActive ? 9 : 4.5;
+            atmosphericMaterial.opacity = hyperGlowActive ? 0.35 : 0.1;
+            nucleusHalo.material.opacity = hyperGlowActive ? 0.18 : 0.05;
+        });
+
+        let fastSpeedActive = false;
+        btnSpeed.addEventListener("click", () => {
+            fastSpeedActive = !fastSpeedActive;
+            btnSpeed.classList.toggle("active", fastSpeedActive);
+            speedMultiplier = fastSpeedActive ? 2.8 : 1.0;
+        });
+
+
+        // =========================================================
+        // ANIMATION LOOP
+        // =========================================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Auto Rotation & Inertia
+            if (!isDragging) {
+                atom.rotation.y += 0.002 * speedMultiplier;
+                atom.rotation.x += 0.0003 * speedMultiplier;
+
+                atom.rotation.y += velocityY;
+                atom.rotation.x += velocityX;
+
+                velocityY *= 0.95;
+                velocityX *= 0.95;
+            }
+
+            // Cosmic dust subtle floating
+            dustParticles.rotation.y = time * 0.015;
+
+            // Nucleus Quantum Jitter & Pulsation
+            nucleusPositions.forEach(p => {
+                const jitterX = Math.sin(time * 8 + p.phase) * 0.6;
+                const jitterY = Math.cos(time * 7 + p.phase) * 0.6;
+                const jitterZ = Math.sin(time * 9 + p.phase) * 0.6;
+                p.mesh.position.set(
+                    p.basePos.x + jitterX,
+                    p.basePos.y + jitterY,
+                    p.basePos.z + jitterZ
+                );
+            });
+
+            // Halo Pulses
+            const haloPulse = 1 + Math.sin(time * 2.5) * 0.08;
+            nucleusHalo.scale.setScalar(haloPulse);
+            innerHalo.scale.setScalar(1 + Math.cos(time * 3.2) * 0.06);
+
+            // Orbit Particles Update
+            orbitParticleData.forEach(data => {
+                data.angle += data.speed * speedMultiplier;
+                const orbit = data.orbit;
+
+                const localPos = new THREE.Vector3(
+                    Math.cos(data.angle) * orbit.radiusX,
+                    Math.sin(data.angle) * orbit.radiusY,
+                    0
+                );
+
+                localPos.applyEuler(orbit.line.rotation);
+                data.particle.position.copy(localPos);
+            });
+
+            // Render
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Responsive Resize
+        window.addEventListener("resize", () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+    </script>
+</body>
+</html>

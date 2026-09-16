@@ -4,7 +4,7 @@ import { Database, FileText, Upload, Search, Share2, Layers, Cpu, CheckCircle } 
 const SAMPLE_DOCS = [
   { id: 'doc_1', title: 'Ultron_System_Architecture.pdf', chunks: 142, vectors: 2048, type: 'PDF', status: 'Indexed' },
   { id: 'doc_2', title: 'Redis_Atomic_Rate_Limiting.py', chunks: 28, vectors: 512, type: 'Python', status: 'Indexed' },
-  { id: 'doc_3', title: 'Nemio_Swarm_Consensus_DAG.md', chunks: 64, vectors: 1024, type: 'Markdown', status: 'Indexed' },
+  { id: 'doc_3', title: 'Ultron_Swarm_Consensus_DAG.md', chunks: 64, vectors: 1024, type: 'Markdown', status: 'Indexed' },
   { id: 'doc_4', title: 'OpenAPI_NVIDIA_NIM_Schema.json', chunks: 85, vectors: 1536, type: 'JSON', status: 'Indexed' }
 ];
 

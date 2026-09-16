@@ -18,7 +18,7 @@ import {
 
 export default function App() {
   const [activeAgent, setActiveAgent] = useState('orchestrator');
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState(null);
   const [swarmPreset, setSwarmPreset] = useState(null); // 'trade' | 'code' | null
   const [showSettings, setShowSettings] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -58,7 +58,7 @@ export default function App() {
   return (
     <div className="relative w-screen h-[100dvh] min-h-screen overflow-hidden bg-slate-950 flex flex-col select-none font-sans text-slate-100">
       {/* 3D Cybernetic ULTRON Brain Canvas Background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
+      <div className="fixed inset-0 pointer-events-auto z-0">
         <div className="brain-canvas pointer-events-auto w-full h-full">
           <BrainCanvas activeAgent={activeAgent} activeTab={activeTab} />
         </div>
@@ -171,7 +171,7 @@ export default function App() {
       {/* Main Container */}
       <main className="relative z-10 flex-1 flex overflow-hidden pt-3 sm:pt-4 p-2 sm:p-4 gap-4 pointer-events-none">
         {/* Modal Floating Panels for Swarm / Memory / RAG / Files / Benchmark Tabs */}
-        {activeTab !== 'chat' && (
+        {activeTab && activeTab !== 'chat' && (
           <section className="flex-1 h-full max-w-4xl mx-auto overflow-hidden pointer-events-auto z-20">
             {activeTab === 'swarm' && (
               <SwarmPanel activeAgent={activeAgent} preset={swarmPreset} onClose={() => setActiveTab(null)} />

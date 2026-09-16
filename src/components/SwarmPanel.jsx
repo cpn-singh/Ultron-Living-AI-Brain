@@ -37,9 +37,9 @@ export default function SwarmPanel({ activeAgent, preset, onClose }) {
         <div>
           <h2 className="text-base sm:text-lg font-bold text-rose-400 flex items-center gap-2">
             <Cpu className="w-5 h-5 text-rose-500 animate-pulse" />
-            NEMI Autonomous Swarm Collaboration Engine
+            ULTRON Autonomous 5-Model Swarm Collaboration Engine
           </h2>
-          <p className="text-xs text-rose-300/60">5 Specialist Verification Agents (Sophia, Nexus, Vigil, Kinetics, Aegis) synchronized in DAG consensus.</p>
+          <p className="text-xs text-rose-300/60">5 Flagship Models (DeepSeek-R1, Claude 3.5 Sonnet, Qwen 2.5 Coder, LLaMA 3.3, Gemini 2.5 Pro) executing synchronously in parallel consensus.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export default function SwarmPanel({ activeAgent, preset, onClose }) {
             className="cyber-button px-4 py-2 rounded-xl text-xs font-semibold text-rose-100 flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 cursor-pointer"
           >
             {isRunning ? <Clock className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-            {isRunning ? 'Running DAG Consensus...' : 'Execute Swarm DAG'}
+            {isRunning ? 'Synchronizing 5-Bot Swarm...' : 'Execute Synchronous Swarm DAG'}
           </button>
 
           {onClose && (

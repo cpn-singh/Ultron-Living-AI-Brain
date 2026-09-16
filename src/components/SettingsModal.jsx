@@ -38,7 +38,7 @@ export default function SettingsModal({ onClose }) {
         <div className="flex items-center gap-2 border-b border-rose-900/40 pb-3">
           <Sliders className="w-5 h-5 text-rose-500 animate-pulse" />
           <div>
-            <h2 className="text-lg font-bold text-rose-300">ULTRON & NEMI Core Settings</h2>
+            <h2 className="text-lg font-bold text-rose-300">ULTRON Swarm Core Settings</h2>
             <p className="text-xs text-rose-300/60">Configure inference engines, speech synthesis, & companion mode.</p>
           </div>
         </div>

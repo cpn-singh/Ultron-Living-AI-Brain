@@ -30,7 +30,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
         sender: 'ULTRON',
         botName: activeBotObj.name,
         isWelcome: true,
-        text: `Welcome to **NEMI**\n\nI'm your next-generation desktop AI companion.\n- **Interactive Chat**: Type your questions, code, or ideas.\n- **Persistent Memory**: I remember your preferences and project details across sessions.\n- **Voice Ready**: Press **⌘⇧Space** or click the mic button to speak.\n- **RAG Connected**: Query your local documents in real-time.`
+        text: `Welcome to **ULTRON Swarm**\n\nI'm your next-generation desktop AI companion.\n- **Interactive Chat**: Type your questions, code, or ideas.\n- **Persistent Memory**: I remember your preferences and project details across sessions.\n- **Voice Ready**: Press **⌘⇧Space** or click the mic button to speak.\n- **RAG Connected**: Query your local documents in real-time.`
       }
     ];
   });
@@ -58,6 +58,10 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   useEffect(() => {
     isVoiceAvailable().then(setVoiceAvailable);
   }, []);
+
+  useEffect(() => {
+    setIsMinimized(false);
+  }, [activeAgent]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -157,10 +161,10 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       {/* Header Bar */}
       <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-slate-800/70 bg-slate-950/90 flex-shrink-0">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          {/* NEMI Status Pill */}
+          {/* ULTRON Status Pill */}
           <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)]">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>NEMI</span>
+            <span>ULTRON AI</span>
           </div>
         </div>
 
