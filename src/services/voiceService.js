@@ -22,14 +22,21 @@ const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
 
 /**
  * Detect if running inside an Android browser (not native Capacitor app).
- * On Android, the Web Speech API triggers a disruptive system dialog:
- * "Speech Recognition and synthesis from Google - Cannot record now as Chrome"
- * We skip it entirely on Android web browsers and go directly to MediaRecorder.
  */
 function isAndroidBrowser() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
   return /android/i.test(ua) && !Capacitor.isNativePlatform();
+}
+
+/**
+ * Returns true if the Web Speech API is available in the current browser.
+ * Modern Android Chrome (v33+) supports webkitSpeechRecognition natively
+ * without requiring a local backend.
+ */
+function isWebSpeechAvailable() {
+  if (typeof window === 'undefined') return false;
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
 /**
@@ -289,134 +296,135 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
     return { transcript: '', error: 'Microphone permission denied. Please allow microphone access in your browser.' };
   }
 
-  // 1. Try Web Speech API (Works in Chrome/Edge desktop browsers)
-  // NOTE: On Android Chrome the Web Speech API triggers a disruptive system dialog:
-  //   "Speech Recognition and synthesis from Google - Cannot record now as Chrome"
-  // We skip it entirely on Android and go directly to MediaRecorder recording.
-  if (typeof window !== 'undefined' && !isAndroidBrowser()) {
+  // 1. Try Web Speech API (Works in Chrome/Edge desktop and modern Android Chrome)
+  // Modern Android Chrome supports webkitSpeechRecognition natively without needing
+  // a local backend. We use it on all platforms (desktop + Android browser).
+  if (isWebSpeechAvailable()) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
-      return new Promise((resolve) => {
-        try {
-          if (webRecognition) {
-            try { webRecognition.abort(); } catch (e) {}
+    return new Promise((resolve) => {
+      try {
+        if (webRecognition) {
+          try { webRecognition.abort(); } catch (e) {}
+        }
+
+        const recognition = new SpeechRecognition();
+        webRecognition = recognition;
+
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.lang = 'en-US';
+
+        let accumulatedTranscript = '';
+        let lastSpeechTime = Date.now();
+        let autoStopTimeout = null;
+
+        recognition.onstart = () => {
+          if (onStatus) onStatus('listening');
+          if (onPartial) onPartial('Listening... speak into your microphone');
+
+          silenceTimer = setInterval(() => {
+            if (Date.now() - lastSpeechTime > 8000) {
+              try { recognition.stop(); } catch (e) {}
+            }
+          }, 1000);
+        };
+
+        recognition.onresult = (event) => {
+          lastSpeechTime = Date.now();
+          let interim = '';
+          let hasFinal = false;
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              accumulatedTranscript += ' ' + res[0].transcript;
+              hasFinal = true;
+            } else {
+              interim += res[0].transcript;
+            }
           }
 
-          const recognition = new SpeechRecognition();
-          webRecognition = recognition;
+          const currentPartial = (accumulatedTranscript + ' ' + interim).trim();
+          if (onPartial && currentPartial) {
+            onPartial(currentPartial);
+          }
 
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.maxAlternatives = 1;
-          recognition.lang = 'en-US';
+          if (autoStopTimeout) clearTimeout(autoStopTimeout);
 
-          let accumulatedTranscript = '';
-          let lastSpeechTime = Date.now();
-          let autoStopTimeout = null;
+          // Give user 2.2s after final phrase or 3.0s after interim phrase to complete their sentence
+          if (currentPartial.length > 0) {
+            autoStopTimeout = setTimeout(() => {
+              try { recognition.stop(); } catch (e) {}
+            }, hasFinal ? 2200 : 3000);
+          }
+        };
 
-          recognition.onstart = () => {
-            if (onStatus) onStatus('listening');
-            if (onPartial) onPartial('Listening... speak into your microphone');
+        recognition.onerror = async (event) => {
+          console.warn('[VoiceService] SpeechRecognition error:', event.error);
+          if (silenceTimer) clearInterval(silenceTimer);
+          if (autoStopTimeout) clearTimeout(autoStopTimeout);
 
-            silenceTimer = setInterval(() => {
-              if (Date.now() - lastSpeechTime > 8000) {
-                try { recognition.stop(); } catch (e) {}
-              }
-            }, 1000);
-          };
-
-          recognition.onresult = (event) => {
-            lastSpeechTime = Date.now();
-            let interim = '';
-            let hasFinal = false;
-
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              const res = event.results[i];
-              if (res.isFinal) {
-                accumulatedTranscript += ' ' + res[0].transcript;
-                hasFinal = true;
-              } else {
-                interim += res[0].transcript;
-              }
+          // On desktop, fall back to MediaRecorder + Python backend on recognition failure
+          if (!isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && event.error !== 'aborted') {
+            try {
+              const fallbackRes = await startMediaRecorderFallback(onStatus, onPartial);
+              resolve(fallbackRes);
+              return;
+            } catch (e) {
+              console.warn('[VoiceService] Fallback also failed:', e);
             }
+          }
 
-            const currentPartial = (accumulatedTranscript + ' ' + interim).trim();
-            if (onPartial && currentPartial) {
-              onPartial(currentPartial);
-            }
+          if (onStatus) onStatus('idle');
+          resolve({ 
+            transcript: accumulatedTranscript.trim(), 
+            error: event.error === 'no-speech' ? null : (event.error === 'not-allowed' ? 'Microphone permission denied' : event.error) 
+          });
+        };
 
-            if (autoStopTimeout) clearTimeout(autoStopTimeout);
-
-            // Give user 2.2s after final phrase or 3.0s after interim phrase to complete their sentence
-            if (currentPartial.length > 0) {
-              autoStopTimeout = setTimeout(() => {
-                try { recognition.stop(); } catch (e) {}
-              }, hasFinal ? 2200 : 3000);
-            }
-          };
-
-          recognition.onerror = async (event) => {
-            console.warn('[VoiceService] SpeechRecognition error:', event.error);
-            if (silenceTimer) clearInterval(silenceTimer);
-            if (autoStopTimeout) clearTimeout(autoStopTimeout);
-
-            // On mobile / desktop speech recognition failure, fallback immediately to MediaRecorder audio recording
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && event.error !== 'aborted') {
-              try {
-                const fallbackRes = await startMediaRecorderFallback(onStatus, onPartial);
-                resolve(fallbackRes);
-                return;
-              } catch (e) {
-                console.warn('[VoiceService] Fallback also failed:', e);
-              }
-            }
-
+        recognition.onend = () => {
+          if (silenceTimer) clearInterval(silenceTimer);
+          if (autoStopTimeout) clearTimeout(autoStopTimeout);
+          if (onStatus) onStatus('processing');
+          
+          const resultText = accumulatedTranscript.trim();
+          setTimeout(() => {
             if (onStatus) onStatus('idle');
-            resolve({ 
-              transcript: accumulatedTranscript.trim(), 
-              error: event.error === 'no-speech' ? null : (event.error === 'not-allowed' ? 'Microphone permission denied' : event.error) 
-            });
-          };
+          }, 200);
 
-          recognition.onend = () => {
-            if (silenceTimer) clearInterval(silenceTimer);
-            if (autoStopTimeout) clearTimeout(autoStopTimeout);
-            if (onStatus) onStatus('processing');
-            
-            const resultText = accumulatedTranscript.trim();
-            setTimeout(() => {
-              if (onStatus) onStatus('idle');
-            }, 200);
-
-            if (resultText) {
-              resolve({ transcript: resultText, error: null });
-            } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              startMediaRecorderFallback(onStatus, onPartial).then(resolve);
-            } else {
-              resolve({ transcript: '', error: null });
-            }
-          };
-
-          recognition.start();
-        } catch (err) {
-          console.warn('[VoiceService] Failed to start Web Speech API, using MediaRecorder fallback:', err);
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          if (resultText) {
+            resolve({ transcript: resultText, error: null });
+          } else if (!isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            // Desktop only: fall back to MediaRecorder + local Python STT
             startMediaRecorderFallback(onStatus, onPartial).then(resolve);
           } else {
-            resolve({ transcript: '', error: err.message || 'Could not start Web Speech Recognition' });
+            resolve({ transcript: '', error: null });
           }
+        };
+
+        recognition.start();
+      } catch (err) {
+        console.warn('[VoiceService] Failed to start Web Speech API, using MediaRecorder fallback:', err);
+        if (!isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          startMediaRecorderFallback(onStatus, onPartial).then(resolve);
+        } else {
+          resolve({ transcript: '', error: err.message || 'Could not start Web Speech Recognition' });
         }
-      });
-    }
+      }
+    });
   }
 
-  // 2. Android browser — use MediaRecorder directly (Web Speech API skipped to avoid Google popup)
-  if (isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  // 2. Desktop browser without Web Speech API — use MediaRecorder + local Python STT backend
+  if (!isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     return startMediaRecorderFallback(onStatus, onPartial);
   }
 
-  // 3. Mobile Android Native Plugin Fallback (Capacitor native app)
+  // 3. Android browser without Web Speech API support — show a clear message
+  if (isAndroidBrowser()) {
+    return { transcript: '', error: 'Voice input requires Chrome on Android. Please update Chrome or type your message.' };
+  }
   if (Capacitor.isNativePlatform()) {
     if (statusListener) { await statusListener.remove(); statusListener = null; }
     if (partialListener) { await partialListener.remove(); partialListener = null; }
