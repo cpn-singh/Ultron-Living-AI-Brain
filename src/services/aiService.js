@@ -2,6 +2,9 @@ import { parseAndExecuteCommand } from './commandParser';
 import { openExternalUrl, copyToClipboardAndOpenColab } from './mobileAppLauncherService';
 import { safeFetchPost } from './safeFetchService';
 import { BOTS } from '../data/botsData';
+import { autoProvisionBotIfNeeded } from './dynamicBotProvisioner';
+import { realtimeLearningEngine } from './realtimeLearningService';
+import { selfHealingEngine } from './selfHealingService';
 
 const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA';
 const DEFAULT_NVIDIA_KEY = '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';
@@ -14,13 +17,16 @@ const GREETINGS_AND_MIC_TESTS = [
 ];
 
 /**
- * Main AI response generation router for ULTRON 11-Bot Fleet.
- * Priority: Conversational intent -> Local Command Parser -> Python Backend Server -> Cloud Gemini API -> Cloud NVIDIA NIM API
+ * Main AI response generation router for ULTRON Autonomous Fleet.
+ * Priority: Auto-Provisioning -> Conversational intent -> Local Command Parser -> Python Backend Server -> Cloud Gemini API -> Cloud NVIDIA NIM API
  */
 export async function generateAIResponse(userPrompt, botId = 'orchestrator', context = {}) {
   const trimmed = userPrompt.trim();
   const lower = trimmed.toLowerCase();
-  const selectedBot = BOTS.find(b => b.id === botId) || BOTS[0];
+  
+  // 0. Autonomous Dynamic Bot Provisioner (Auto-adds specialized bots on demand)
+  const autoBot = autoProvisionBotIfNeeded(trimmed);
+  const selectedBot = autoBot || (BOTS.find(b => b.id === botId) || BOTS[0]);
 
   const isColabRedirectRequested = ['open in colab', 'open in collab', 'open it in colab', 'open it in collab', 'open colab', 'open collab', 'open google colab', 'in colab', 'in collab', 'paste code'].some(k => lower.includes(k));
 
@@ -97,6 +103,17 @@ Provide clean, high-impact responses formatted in markdown with code blocks matc
     systemPrompt = `You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini.
 Answer the user's request naturally, clearly, and thoroughly in clean markdown format, just like Gemini or ChatGPT.
 Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user.`;
+  }
+
+  // Inject Real-Time Learned Knowledge into prompt
+  const learnedWisdom = realtimeLearningEngine.getRelevantWisdom(trimmed);
+  if (learnedWisdom) {
+    systemPrompt += `\n\n[ULTRON Real-Time Learned Knowledge & User Preferences]:\n${learnedWisdom}`;
+  }
+
+  // Automatically record this topic into memory for continuous learning
+  if (trimmed.length > 5 && !GREETINGS_AND_MIC_TESTS.some(p => p.test(lower))) {
+    realtimeLearningEngine.recordInsight(trimmed.slice(0, 30), `User requested assistance regarding: ${trimmed}`, 'AUTONOMOUS_INTERACTION');
   }
 
   // 4a. Try Cloud Gemini API

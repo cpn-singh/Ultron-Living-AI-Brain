@@ -21,6 +21,18 @@ let partialListener = null;
 const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
 
 /**
+ * Detect if running inside an Android browser (not native Capacitor app).
+ * On Android, the Web Speech API triggers a disruptive system dialog:
+ * "Speech Recognition and synthesis from Google - Cannot record now as Chrome"
+ * We skip it entirely on Android web browsers and go directly to MediaRecorder.
+ */
+function isAndroidBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /android/i.test(ua) && !Capacitor.isNativePlatform();
+}
+
+/**
  * Check if voice recognition is available.
  */
 export async function isVoiceAvailable() {
@@ -239,18 +251,23 @@ async function startMediaRecorderFallback(onStatus, onPartial) {
               if (res.ok) {
                 const data = await res.json();
                 if (onStatus) onStatus('idle');
-                resolve({ transcript: data.transcript || 'Hello ULTRON', error: null });
+                resolve({ transcript: data.transcript || '', error: null });
                 return;
               }
             } catch (e) {
-              // Python backend unreachable
+              // Python backend unreachable (e.g. on Android mobile browser)
             }
             if (onStatus) onStatus('idle');
-            resolve({ transcript: 'Hello ULTRON', error: null });
+            // On Android/mobile, local backend is not reachable — show a clear error
+            if (isAndroidBrowser()) {
+              resolve({ transcript: '', error: 'Voice-to-text backend is not reachable on this device. Please type your message instead.' });
+            } else {
+              resolve({ transcript: '', error: 'Speech-to-text service is unavailable. Please type your message.' });
+            }
           };
         } catch (err) {
           if (onStatus) onStatus('idle');
-          resolve({ transcript: 'Hello ULTRON', error: null });
+          resolve({ transcript: '', error: 'Could not process audio.' });
         }
       };
 
@@ -272,8 +289,11 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
     return { transcript: '', error: 'Microphone permission denied. Please allow microphone access in your browser.' };
   }
 
-  // 1. Try Web Speech API (Works in Chrome/Edge browsers)
-  if (typeof window !== 'undefined') {
+  // 1. Try Web Speech API (Works in Chrome/Edge desktop browsers)
+  // NOTE: On Android Chrome the Web Speech API triggers a disruptive system dialog:
+  //   "Speech Recognition and synthesis from Google - Cannot record now as Chrome"
+  // We skip it entirely on Android and go directly to MediaRecorder recording.
+  if (typeof window !== 'undefined' && !isAndroidBrowser()) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
@@ -391,7 +411,12 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
     }
   }
 
-  // 2. Mobile Android Native Plugin Fallback
+  // 2. Android browser — use MediaRecorder directly (Web Speech API skipped to avoid Google popup)
+  if (isAndroidBrowser() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    return startMediaRecorderFallback(onStatus, onPartial);
+  }
+
+  // 3. Mobile Android Native Plugin Fallback (Capacitor native app)
   if (Capacitor.isNativePlatform()) {
     if (statusListener) { await statusListener.remove(); statusListener = null; }
     if (partialListener) { await partialListener.remove(); partialListener = null; }
