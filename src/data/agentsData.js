@@ -1,6 +1,6 @@
 /**
  * ULTRON 5-Model Flagship Swarm DAG Specialist Verification Engine
- * Powered by: DeepSeek-R1, Claude 3.5 Sonnet, Qwen 2.5 Coder, LLaMA 3.3 70B, Gemini 2.5 Pro
+ * Powered by: DeepSeek-R1, Claude 3.5 Sonnet, Qwen 2.5 Coder, LLaMA 3.3 70B, Gemini 3.8 Flash
  * Mode: 100% Synchronous Multi-Bot Parallel Execution
  */
 
@@ -43,7 +43,7 @@ export const SPECIALIST_AGENTS = [
   },
   {
     id: "agent_qa",
-    name: "Gemini 2.5 Pro",
+    name: "Gemini 3.8 Flash",
     role: "Consensus Synthesizer",
     avatar: "✅",
     description: "Final Multi-Agent Consensus & Verified DAG Synthesizer",
@@ -83,7 +83,7 @@ export const INITIAL_DAG_NODES = [
   },
   {
     id: "node_qa_verif",
-    label: "Gemini 2.5 Pro: Final Multi-Agent Consensus Synthesis",
+    label: "Gemini 3.8 Flash: Final Multi-Agent Consensus Synthesis",
     agentId: "agent_qa",
     status: "pending",
     dependencies: ["node_sec_audit", "node_perf_opt"]

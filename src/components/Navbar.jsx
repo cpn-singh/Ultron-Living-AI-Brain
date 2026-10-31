@@ -47,6 +47,10 @@ export default function Navbar({
           <span className="text-xs font-bold tracking-[0.25em] bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
             ULTRON
           </span>
+          <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-cyan-300/90 bg-cyan-950/40 border border-cyan-800/50 px-2 py-0.5 rounded-full font-mono">
+            <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
+            Gemini 3.8 Flash • DeepSeek-R1
+          </span>
         </div>
 
         <div className="w-[1px] h-4 bg-white/10 hidden sm:block" />

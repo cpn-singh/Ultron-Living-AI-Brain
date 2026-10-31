@@ -130,7 +130,7 @@ export function speakText(text, options = {}) {
     const profile = VOICE_PROFILES[voiceKey] || VOICE_PROFILES.af_heart;
     
     // Split long text into natural sentence chunks to prevent 15-second speech truncation bug
-    const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
+    const sentences = cleanText.match(/[^.!?]+(?:[.!?]+|$)/g)?.map(s => s.trim()).filter(Boolean) || [cleanText];
     
     sentences.forEach((sentence, index) => {
       const trimmedSentence = sentence.trim();

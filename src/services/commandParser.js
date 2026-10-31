@@ -41,9 +41,9 @@ const PATTERNS = {
     /(?:switch\s+to|open|show|go\s+to)\s+(?:the\s+)?(chat|swarm|files|file\s+manager|memory|knowledge)(?:\s+tab|\s+panel)?/i
   ],
 
-  // App launch: "open youtube", "launch whatsapp", "run camera"
+  // App launch: "open chrome", "launch notepad", "start software spotify"
   LAUNCH_APP: [
-    /(?:open|launch|start|run)\s+(?:the\s+)?(?:app\s+)?(?:called\s+|named\s+)?(.+)/i
+    /(?:open|launch|start|run)\s+(?:the\s+)?(?:app\s+|software\s+|program\s+|application\s+)?(?:called\s+|named\s+)?(.+)/i
   ],
 
   // Help: "help", "what can you do"
@@ -91,7 +91,7 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
       '**"create folder [name]"** — Create a folder',
       '**"open [filename.ext]"** — Open a file with system app',
       '**"list files"** — Browse your Ultron files',
-      '**"open [app name]"** — Launch any installed app on your phone',
+      '**"open [software name]"** — Launch installed software on PC (Chrome, Notepad, Calc, VS Code, etc.)',
       '**"switch to files / swarm / chat / memory / knowledge"** — Voice navigation',
     ]);
   }
@@ -163,8 +163,8 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
     return fmt('❌', 'Cannot Open File', [`Error: ${result.message}`]);
   }
 
-  // ── LAUNCH APP — try mobile scheme first (fast), then fuzzy search ──
-  const isCodeOrQueryIntent = ['code', 'html', 'css', 'js', 'javascript', 'python', 'script', 'function', 'file', 'write', 'create', 'generate', 'build', 'solve', 'explain', 'in colab', 'in collab', 'hello world', 'hello word', 'word', 'program', 'algorithm'].some(k => lower.includes(k));
+  // ── LAUNCH APP / SOFTWARE ──
+  const isCodeOrQueryIntent = ['write code', 'create code', 'generate code', 'write script', 'python code', 'javascript code', 'html code', 'css code', 'sql query', 'cpp code', 'java code', 'c++ code', 'build app', 'write function', 'debug code', 'refactor code', 'in colab', 'in collab', 'hello world', 'algorithm'].some(k => lower.includes(k));
   const isDirectColabLaunch = lower === 'open colab' || lower === 'open google colab' || lower === 'open collab' || lower === 'open google collab';
 
   if (!isCodeOrQueryIntent || isDirectColabLaunch) {
@@ -176,19 +176,22 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
       if (appNameRaw) {
         const cleanName = appNameRaw
           .replace(/\b(app|application|software|program|the|please|now)\b/gi, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
-        if (cleanName.length >= 2 && (!cleanName.includes(' ') || isDirectColabLaunch)) {
+        if (cleanName.length >= 2) {
           const result = await launchApp(cleanName);
           if (result.success) {
-            return fmt('🚀', 'App Launched!', [
-              `**App**: \`${cleanName}\``,
-              `**Package**: \`${result.packageName}\``,
-              'ULTRON launched the app on your phone.'
+            const dest = result.isDesktop ? 'on your PC' : (result.isWeb ? 'in web browser' : 'on your phone');
+            return fmt('🚀', 'Software / App Launched!', [
+              `**Software**: \`${cleanName}\``,
+              `**Status**: Launched ${dest}`,
+              result.message || `ULTRON successfully launched **${cleanName}** ${dest}.`
             ]);
           }
-          return fmt('❌', 'App Not Found', [
-            `Could not find an app named **"${cleanName}"**`,
-            'Try the exact app name or say **"list files"** to check file manager.'
+          return fmt('❌', 'Software Launch Failed', [
+            `Could not launch software named **"${cleanName}"** on your PC.`,
+            `Message: ${result.message || 'App not found in system path.'}`,
+            'Ensure the software is installed on your PC or add its folder to your System PATH environment variables.'
           ]);
         }
       }

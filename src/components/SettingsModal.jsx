@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
-import { testNvidiaConnection } from '../services/aiService';
+import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
 
 export default function SettingsModal({ onClose }) {
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('ultron_gemini_key') || 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA');
+  const [geminiTesting, setGeminiTesting] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState('');
   const [nvidiaKey, setNvidiaKey] = useState(() => localStorage.getItem('ultron_nvidia_key') || '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');
   const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('ultron_tts_voice') || 'af_heart');
   const [voiceSpeed, setVoiceSpeed] = useState(() => localStorage.getItem('ultron_voice_speed') || '1.0');
@@ -52,33 +54,74 @@ export default function SettingsModal({ onClose }) {
           </div>
         )}
 
-        {/* ONLINE AI Section (Matches Screenshot 2) */}
+        {/* ONLINE AI Section */}
         <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-3">
           <div className="flex items-center justify-between text-xs font-bold text-rose-400">
-            <span>ONLINE AI ENGINES</span>
-            <span className="text-[10px] text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Synced & Active</span>
+            <span>ONLINE AI ENGINES & FRONTIER MODELS</span>
+            <span className="text-[10px] text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Active 2026 Fleet</span>
           </div>
 
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-cyan-300 font-mono">GOOGLE GEMINI API KEY (PRIMARY)</label>
+              <label className="text-[10px] text-cyan-300 font-mono">PRIMARY AI INFERENCE ENGINE</label>
+              <select
+                value={activeModel}
+                onChange={(e) => setActiveModel(e.target.value)}
+                className="bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono"
+              >
+                <option value="gemini-3.8-flash">Google Gemini 3.8 Flash (High-Speed & Reasoning)</option>
+                <option value="gemini-3.6-flash">Google Gemini 3.6 Flash (Stable Multimodal)</option>
+                <option value="deepseek-r1">DeepSeek-R1 via NVIDIA NIM (Deep Reasoning & Math)</option>
+                <option value="llama-3.3-70b">Meta LLaMA 3.3 70B (Open Weights Frontier)</option>
+                <option value="nvidia-nemotron">NVIDIA Nemotron-70B (Swarm Coordinator)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-cyan-300 font-mono">GOOGLE GEMINI API KEY (PRIMARY)</label>
+                {geminiStatus && (
+                  <span className={`text-[10px] font-mono ${geminiStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {geminiStatus}
+                  </span>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   type="password"
                   value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="Gemini API Key..."
+                  onChange={(e) => {
+                    setGeminiKey(e.target.value);
+                    setGeminiStatus('');
+                  }}
+                  placeholder="Gemini API Key (AIzaSy...)"
                   className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 font-mono focus:outline-none focus:border-cyan-500"
                 />
-                <span className="px-3 py-2 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-cyan-300 text-[10px] font-mono flex items-center">
-                  GEMINI 3.5
-                </span>
+                <button
+                  type="button"
+                  disabled={geminiTesting}
+                  onClick={async () => {
+                    setGeminiTesting(true);
+                    setGeminiStatus('Testing...');
+                    const res = await testGeminiConnection(geminiKey);
+                    setGeminiTesting(false);
+                    setGeminiStatus(res.message);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/60 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Test Gemini API Connection"
+                >
+                  {geminiTesting ? (
+                    <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
+                  ) : (
+                    <span>Test</span>
+                  )}
+                </button>
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK)</label>
+                <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK / DEEPSEEK)</label>
                 {nvidiaStatus && (
                   <span className={`text-[10px] font-mono ${nvidiaStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {nvidiaStatus}
@@ -120,7 +163,7 @@ export default function SettingsModal({ onClose }) {
           </div>
         </div>
 
-        {/* VOICE (TTS) Section (Matches Screenshot 2) */}
+        {/* VOICE (TTS) Section */}
         <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-3">
           <div className="flex items-center justify-between text-xs font-bold text-rose-400">
             <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-rose-500" /> VOICE (TTS)</span>
@@ -164,7 +207,7 @@ export default function SettingsModal({ onClose }) {
           </div>
         </div>
 
-        {/* HUMAN COMPANION EXPERIENCE Toggle (Matches Screenshot 2) */}
+        {/* HUMAN COMPANION EXPERIENCE Toggle */}
         <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex items-center justify-between">
           <div>
             <div className="text-xs font-bold text-rose-300 flex items-center gap-1.5">

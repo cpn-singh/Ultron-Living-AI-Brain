@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, Mic, MicOff, Loader2, Copy, Check, Sparkles, Minus, Maximize2, Minimize2, X, Terminal, MessageSquare,
-  Paperclip, Volume2, Bookmark, Eye, Brain, Clock, ChevronDown, Plus, ExternalLink, Activity, Target
+  Paperclip, Volume2, Bookmark, Eye, Brain, Clock, ChevronDown, Plus, ExternalLink, Activity, Target,
+  Globe, Download, Trash2
 } from 'lucide-react';
 import { generateAIResponse } from '../services/aiService';
 import { startVoiceRecognition, stopVoiceRecognition, isVoiceAvailable } from '../services/voiceService';
@@ -15,6 +16,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   const activeBotObj = BOTS.find(b => b.id === activeAgent) || BOTS[0];
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
 
   const [messages, setMessages] = useState(() => {
     try {
@@ -30,7 +32,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
         sender: 'ULTRON',
         botName: activeBotObj.name,
         isWelcome: true,
-        text: `Welcome to **ULTRON Swarm**\n\nI'm your next-generation desktop AI companion.\n- **Interactive Chat**: Type your questions, code, or ideas.\n- **Persistent Memory**: I remember your preferences and project details across sessions.\n- **Voice Ready**: Press **⌘⇧Space** or click the mic button to speak.\n- **RAG Connected**: Query your local documents in real-time.`
+        text: `Welcome to **ULTRON Swarm (2026 Core)**\n\nI'm your next-generation AI companion powered by frontier intelligence.\n- **Frontier AI Engines**: Google Gemini 3.8 Flash & DeepSeek-R1 / LLaMA 3.3 via NVIDIA NIM.\n- **Interactive Code Sandboxes**: Click **Run** on any Python or JavaScript code block to execute directly in your local environment.\n- **Live Web Grounding**: Real-time Google Search grounding with verified citations (toggle via the 🌐 Globe button).\n- **Interactive RAG & Memory**: Continuous learning engine with local document semantic search.\n- **PC Software Automation**: Launch your desktop software by voice or text command.\n- **Voice Ready**: Press **⌘⇧Space** or click the mic button to speak.`
       }
     ];
   });
@@ -40,6 +42,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   const [partialText, setPartialText] = useState('');
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [memoryCount, setMemoryCount] = useState(4);
   const messagesEndRef = useRef(null);
   const processedSpeechTsRef = useRef(null);
   const loadingRef = useRef(loading);
@@ -48,6 +51,16 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   activeAgentRef.current = activeAgent;
   const activeBotNameRef = useRef(activeBotObj.name);
   activeBotNameRef.current = activeBotObj.name;
+
+  useEffect(() => {
+    try {
+      const mems = localStorage.getItem('ultron_memory_bank');
+      if (mems) {
+        const parsed = JSON.parse(mems);
+        if (Array.isArray(parsed)) setMemoryCount(parsed.length);
+      }
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     try {
@@ -72,15 +85,20 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   }, [activeBotObj.name]);
 
   const handleSend = useCallback(async (textOverride) => {
-    const userText = (textOverride ?? input).trim();
+    let userText = (textOverride ?? input).trim();
     if (!userText || loadingRef.current) return;
     setInput('');
     setPartialText('');
+
+    if (webSearchEnabled && !userText.toLowerCase().includes('search')) {
+      userText = `[Web Search Active] ${userText}`;
+    }
+
     addMessage('User', userText);
     setLoading(true);
 
     try {
-      const response = await generateAIResponse(userText, activeAgentRef.current, { onSwitchTab });
+      const response = await generateAIResponse(userText, activeAgentRef.current, { onSwitchTab, webSearch: webSearchEnabled });
       const reply = response || 'Command executed.';
       addMessage('ULTRON', reply, activeBotNameRef.current);
     } catch (err) {
@@ -88,7 +106,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     } finally {
       setLoading(false);
     }
-  }, [input, addMessage, onSwitchTab]);
+  }, [input, addMessage, onSwitchTab, webSearchEnabled]);
 
   useEffect(() => {
     if (
@@ -134,17 +152,51 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleExportChat = () => {
+    const markdownContent = messages.map(m => `### ${m.sender} (${m.botName || 'System'})\n\n${m.text}\n\n---\n`).join('\n');
+    const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ULTRON_Chat_${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClearChat = () => {
+    if (window.confirm("Clear conversation history?")) {
+      const resetMessages = [
+        {
+          id: 1,
+          sender: 'ULTRON',
+          botName: activeBotObj.name,
+          isWelcome: true,
+          text: `Chat history cleared.\n\nReady for your next query or command!`
+        }
+      ];
+      setMessages(resetMessages);
+      localStorage.setItem('ultron_chat_history', JSON.stringify(resetMessages));
+    }
+  };
+
   const quickBots = BOTS;
 
   const handleClose = () => {
     setIsMinimized(true);
-    if (onSwitchTab) {
-      onSwitchTab(null);
-    }
+    if (onSwitchTab) onSwitchTab(null);
   };
 
   if (isMinimized) {
-    return null;
+    return (
+      <button
+        onClick={() => setIsMinimized(false)}
+        className="fixed bottom-6 right-6 z-50 p-4 rounded-full bg-emerald-600 text-white shadow-2xl hover:bg-emerald-500 transition-all flex items-center gap-2 border border-emerald-400 cursor-pointer pointer-events-auto"
+        title="Open Chat Drawer"
+      >
+        <MessageSquare className="w-5 h-5" />
+        <span className="text-xs font-bold font-mono">ULTRON</span>
+      </button>
+    );
   }
 
   return (
@@ -166,17 +218,33 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>ULTRON AI</span>
           </div>
+
+          {/* Web Search Active Pill */}
+          {webSearchEnabled && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-[10px] font-semibold">
+              <Globe className="w-3 h-3 text-cyan-400" />
+              <span>Web Grounding Active</span>
+            </div>
+          )}
         </div>
 
-        {/* Right Window Action Buttons (+, Expand, X) */}
+        {/* Right Window Action Buttons (Export, Clear, Expand, Close) */}
         <div className="flex items-center gap-1 text-slate-400">
           <button
             type="button"
-            onClick={handleClose}
+            onClick={handleExportChat}
             className="p-1 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            title="Minimize"
+            title="Export Chat History as Markdown"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleClearChat}
+            className="p-1 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Clear Chat History"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
@@ -253,7 +321,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                     <button onClick={() => copyToClipboard(m.id, m.text)} className="hover:text-slate-300 cursor-pointer">
                       {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
                     </button>
-                    <span>09:43 AM</span>
+                    <span>{new Date(m.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Now'}</span>
                   </div>
                 </div>
               ) : (
@@ -261,55 +329,56 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                   <div className="bg-[#0c0d19]/90 border border-slate-800/80 rounded-2xl p-4 shadow-xl text-xs space-y-2 text-slate-100">
                     {m.isWelcome ? (
                       <div className="space-y-2">
-                        <h3 className="text-sm font-bold text-emerald-400">Welcome to NEMI</h3>
+                        <h3 className="text-sm font-bold text-emerald-400">Welcome to ULTRON Swarm (2026 Core)</h3>
                         <p className="text-slate-300">I'm your next-generation desktop AI companion.</p>
                         <ul className="space-y-1.5 pt-1 text-slate-200">
                           <li className="flex items-start gap-1.5">
                             <span className="text-emerald-400 font-bold">&gt;</span>
-                            <span><strong>Interactive Chat</strong>: Type your questions, code, or ideas.</span>
+                            <span><strong>Frontier AI Engines</strong>: Google Gemini 3.8 Flash & DeepSeek-R1 / LLaMA 3.3.</span>
                           </li>
                           <li className="flex items-start gap-1.5">
                             <span className="text-emerald-400 font-bold">&gt;</span>
-                            <span><strong>Persistent Memory</strong>: I remember your preferences and project details across sessions.</span>
+                            <span><strong>Interactive Code Sandboxes</strong>: Click <strong>Run</strong> on any Python or JS code block.</span>
                           </li>
                           <li className="flex items-start gap-1.5">
                             <span className="text-emerald-400 font-bold">&gt;</span>
-                            <span><strong>Voice Ready</strong>: Press <code className="bg-slate-800 text-emerald-300 px-1 py-0.5 rounded text-[10px]">⌘⇧Space</code> or click the mic button to speak.</span>
+                            <span><strong>Live Web Grounding</strong>: Google Search grounding with verified citations.</span>
                           </li>
                           <li className="flex items-start gap-1.5">
                             <span className="text-emerald-400 font-bold">&gt;</span>
-                            <span><strong>RAG Connected</strong>: Query your local documents in real-time.</span>
+                            <span><strong>Interactive RAG & Memory</strong>: Dual-tab memory bank with local document semantic search.</span>
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="text-emerald-400 font-bold">&gt;</span>
+                            <span><strong>PC Software Automation</strong>: Launch installed software on PC by voice or command.</span>
                           </li>
                         </ul>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1">
-                          <span className="font-mono text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                            🤖 NEMI [{m.botName || activeBotObj.shortName}]
-                          </span>
-                          <button onClick={() => copyToClipboard(m.id, m.text)} className="text-slate-400 hover:text-slate-200 cursor-pointer">
-                            {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                          </button>
-                        </div>
-                        <MarkdownRenderer content={m.text} />
-                      </>
+                      <MarkdownRenderer content={m.text} />
                     )}
+                  </div>
 
-                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-2 mt-2 text-[10px] text-slate-500">
-                      <span>01:50 PM</span>
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <button onClick={() => speakText(m.text)} className="hover:text-slate-200 cursor-pointer" title="Speak text">
-                          <Volume2 className="w-3 h-3" />
-                        </button>
-                        <button className="hover:text-slate-200 cursor-pointer" title="Bookmark message">
-                          <Bookmark className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => copyToClipboard(m.id, m.text)} className="hover:text-slate-200 cursor-pointer" title="Copy text">
-                          {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </div>
-                    </div>
+                  {/* Message Action Footer */}
+                  <div className="flex items-center gap-2 pl-2 text-[10px] text-slate-500">
+                    <button
+                      onClick={() => copyToClipboard(m.id, m.text)}
+                      className="hover:text-slate-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedId === m.id ? 'Copied' : 'Copy'}</span>
+                    </button>
+                    <span>•</span>
+                    <button
+                      onClick={() => speakText(m.text)}
+                      className="hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                      title="Listen to message voice"
+                    >
+                      <Volume2 className="w-3 h-3 text-slate-400" />
+                      <span>Speak</span>
+                    </button>
+                    <span>•</span>
+                    <span className="font-mono text-emerald-400/70">{m.botName || activeBotObj.name}</span>
                   </div>
                 </div>
               )}
@@ -326,7 +395,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
         {loading && (
           <div className="self-start bg-slate-950/90 border border-emerald-900/60 p-3 rounded-2xl text-xs text-emerald-400 flex items-center gap-2 shadow-lg">
             <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-            <span>NEMI [{activeBotObj.shortName}] processing response...</span>
+            <span>ULTRON [{activeBotObj.shortName}] processing response...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -345,12 +414,18 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
 
         {/* Input Pill Bar */}
         <div className="bg-[#0b1319] border border-emerald-900/60 rounded-full px-3.5 py-2 flex items-center gap-2.5 shadow-inner focus-within:border-emerald-500/80 transition-all">
+          {/* Live Web Grounding Toggle */}
           <button
             type="button"
-            className="text-slate-400 hover:text-emerald-400 cursor-pointer flex-shrink-0"
-            title="Attach file or code"
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            className={`cursor-pointer flex-shrink-0 p-1 rounded-full transition-colors ${
+              webSearchEnabled 
+                ? 'text-cyan-300 bg-cyan-950/60 shadow-[0_0_8px_rgba(6,182,212,0.5)]' 
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+            title={webSearchEnabled ? "Live Web Search Grounding: ON" : "Live Web Search Grounding: OFF (Click to enable)"}
           >
-            <Paperclip className="w-4 h-4 text-emerald-400/80" />
+            <Globe className="w-4 h-4" />
           </button>
 
           <input
@@ -358,13 +433,13 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={activeBotObj.placeholder}
+            placeholder={webSearchEnabled ? "Search web with Gemini 3.8 Grounding..." : activeBotObj.placeholder}
             className="flex-1 min-w-0 bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
           />
 
           <button
             type="button"
-            onClick={() => speakText(input || "NEMI active")}
+            onClick={() => speakText(input || "ULTRON active")}
             className="text-slate-400 hover:text-emerald-400 cursor-pointer flex-shrink-0"
             title="Voice preview"
           >
@@ -401,7 +476,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           </span>
           <span className="flex items-center gap-1 text-emerald-400/80">
             <Brain className="w-3 h-3" />
-            <span>12 memories loaded</span>
+            <span>{memoryCount} memories loaded</span>
           </span>
         </div>
       </div>

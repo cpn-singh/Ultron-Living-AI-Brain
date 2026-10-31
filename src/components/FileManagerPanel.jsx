@@ -83,24 +83,6 @@ export default function FileManagerPanel() {
     await loadDirectory(currentPath);
   };
 
-  if (!isAndroid) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center glass-panel rounded-2xl p-8 text-center gap-4">
-        <FolderOpen className="w-16 h-16 text-rose-500/40" />
-        <div className="flex flex-col gap-1">
-          <p className="text-rose-400 text-lg font-bold">ULTRON Mobile Storage Manager</p>
-          <p className="text-rose-300/60 text-xs max-w-md">
-            File system integration is active for Android devices under <code className="text-rose-400 font-mono">Downloads/Ultron/</code>.<br />
-            Strict data loss protection is enforced: system files and applications remain untouched.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-green-400 bg-green-950/40 border border-green-800/40 px-3 py-1.5 rounded-full">
-          <ShieldCheck className="w-4 h-4 text-green-400" /> Data Protection & Zero-Deletion Active
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full flex flex-col glass-panel rounded-2xl p-4 gap-3">
       {/* Header */}

@@ -135,21 +135,21 @@ When handling user requests, structure your response into 3 concise, high-impact
   },
   {
     id: "advanced-rag",
-    name: "Gemini 2.5 Pro (Ultra RAG & Context Engine)",
-    shortName: "Gemini 2.5",
+    name: "Gemini 3.8 Flash (Ultra RAG & Context Engine)",
+    shortName: "Gemini 3.8",
     icon: "BookOpen",
     category: "Advanced Production",
-    description: "2M token context window, hybrid search (BM25 + Qdrant vectors), neural reranking, and deep document Q&A.",
+    description: "2M token context window, hybrid search (BM25 + Qdrant vectors), Google Search grounding, and deep document Q&A.",
     defaultWebhook: "rag/advanced-pipeline",
     workflowFile: "workflows/advanced-rag.workflow.json",
     supportedTasks: ["hybrid-search", "bm25", "rerank", "qdrant", "hyde", "parent-document"],
-    placeholder: "Ask Gemini 2.5 Pro for hybrid retrieval pipelines, long context RAG, or neural reranking...",
+    placeholder: "Ask Gemini 3.8 for hybrid retrieval pipelines, long context RAG, or neural reranking...",
     samplePrompts: [
       "Build a hybrid search pipeline combining BM25 and Qdrant dense vectors",
       "Implement HyDE (Hypothetical Document Embeddings) with Cohere reranking",
       "Parent document retriever architecture for massive PDF technical manuals"
     ],
-    directive: `You are Gemini 2.5 Pro — Ultra RAG & Massive Context Engineer.
+    directive: `You are Gemini 3.8 Flash — Ultra RAG & Massive Context Engineer.
 - HYBRID RETRIEVAL & RERANKING: Design pipelines leveraging reciprocal rank fusion (RRF), BM25 lexical search, and dense vector embeddings with Cross-Encoders/Cohere rerankers.
 - CHUNKING & STRUCTURING: Implement parent-child chunking, sliding windows, and semantic chunking strategies for maximum context density.`
   },

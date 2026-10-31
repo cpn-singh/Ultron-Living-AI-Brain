@@ -108,42 +108,89 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
   // Inject Real-Time Learned Knowledge into prompt
   const learnedWisdom = realtimeLearningEngine.getRelevantWisdom(trimmed);
   if (learnedWisdom) {
-    systemPrompt += `\n\n[ULTRON Real-Time Learned Knowledge & User Preferences]:\n${learnedWisdom}`;
+    systemPrompt += `\n\n[ULTRON Real-Time Learned Knowledge]:\n${learnedWisdom}`;
   }
+
+  // Inject User Stored Memories (from Memory Bank)
+  try {
+    const rawMems = localStorage.getItem('ultron_memory_bank');
+    if (rawMems) {
+      const parsedMems = JSON.parse(rawMems);
+      if (Array.isArray(parsedMems) && parsedMems.length > 0) {
+        const relevantMems = parsedMems.slice(0, 5).map(m => `- [${m.category} | ${m.key}]: ${m.value}`).join('\n');
+        systemPrompt += `\n\n[ULTRON User Preferences & Memory Bank]:\n${relevantMems}`;
+      }
+    }
+  } catch (e) {}
 
   // Automatically record this topic into memory for continuous learning
   if (trimmed.length > 5 && !GREETINGS_AND_MIC_TESTS.some(p => p.test(lower))) {
     realtimeLearningEngine.recordInsight(trimmed.slice(0, 30), `User requested assistance regarding: ${trimmed}`, 'AUTONOMOUS_INTERACTION');
   }
 
-  // 4a. Try Cloud Gemini API
+  // 4a. Try Cloud Gemini API (Premier Frontier 2026 Models with Cascading Fallback)
   const geminiKey = localStorage.getItem('ultron_gemini_key') || DEFAULT_GEMINI_KEY;
-  const geminiModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+  const geminiModels = [
+    'gemini-3.8-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-flash-latest'
+  ];
+
+  const needsSearchGrounding = ['latest', 'recent', 'today', 'news', 'who is', 'what is', 'current', 'score', 'weather', 'stock', 'price'].some(w => lower.includes(w));
 
   for (const modelName of geminiModels) {
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
-      const response = await safeFetchPost(geminiUrl, {
+      const payload = {
         contents: [
           { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
         ]
-      }, {
+      };
+
+      // Add Google Search Grounding when relevant
+      if (needsSearchGrounding) {
+        payload.tools = [{ googleSearch: {} }];
+      }
+
+      const response = await safeFetchPost(geminiUrl, payload, {
         'Content-Type': 'application/json'
       });
 
       if (response.ok) {
         const data = await response.json();
-        const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+        const candidate = data.candidates?.[0];
+        let answer = candidate?.content?.parts?.[0]?.text;
+        if (answer && answer.trim()) {
+          // Extract web sources from grounding metadata if available
+          const grounding = candidate?.groundingMetadata;
+          if (grounding && Array.isArray(grounding.groundingChunks)) {
+            const sources = grounding.groundingChunks
+              .map(c => c.web?.uri ? `[${c.web?.title || 'Source'}](${c.web?.uri})` : null)
+              .filter(Boolean);
+            const uniqueSources = [...new Set(sources)];
+            if (uniqueSources.length > 0) {
+              answer = answer.trim() + `\n\n🔍 **Verified Web Grounding Sources:**\n` + uniqueSources.slice(0, 4).map(s => `- ${s}`).join('\n');
+            }
+          }
+          return triggerColabCopyAndRedirect(answer.trim());
+        }
       }
     } catch (err) {
       console.warn(`[AI Service] Cloud Gemini API (${modelName}) unavailable:`, err.message);
     }
   }
 
-  // 4b. Try Cloud NVIDIA NIM API
+  // 4b. Try Cloud NVIDIA NIM API (DeepSeek-R1, LLaMA 3.3, Nemotron 4)
   const nvidiaKey = localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
-  const nvidiaModels = ['meta/llama-3.2-11b-vision-instruct', 'meta/llama-3.2-90b-vision-instruct', 'nvidia/nemotron-4-340b-instruct'];
+  const nvidiaModels = [
+    'deepseek-ai/deepseek-r1',
+    'meta/llama-3.3-70b-instruct',
+    'nvidia/nemotron-4-340b-instruct',
+    'meta/llama-3.2-11b-vision-instruct',
+    'mistralai/mistral-large-2-instruct'
+  ];
   const nvidiaEndpoints = ['/nvidia-api/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
 
   for (const endpoint of nvidiaEndpoints) {
@@ -156,7 +203,7 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
             { role: 'user', content: trimmed }
           ],
           temperature: 0.3,
-          max_tokens: 1200
+          max_tokens: 1500
         }, {
           'Authorization': `Bearer ${nvidiaKey}`,
           'Accept': 'application/json'
@@ -180,7 +227,81 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
     return `I'm right here with you! Voice TTS and audio settings are active for **${safeBotName}**. Automatic screen reading has been turned off as requested, so I won't speak every message automatically unless you tap **Test** or trigger speech. How can I help you next?`;
   }
 
+  // 6. Live World Wide Web Search Engine (Wikipedia REST & Web CORS APIs)
+  try {
+    const webResult = await fetchLiveWebKnowledge(trimmed);
+    if (webResult) {
+      return triggerColabCopyAndRedirect(webResult);
+    }
+  } catch (err) {
+    console.warn('[AI Service] Live Web Knowledge search error:', err);
+  }
+
+  // 7. Intelligent Casual & Technical Conversational Engine
   return triggerColabCopyAndRedirect(generateSmartFallback(trimmed, safeBotName));
+}
+
+export async function fetchLiveWebKnowledge(query) {
+  const cleanQ = query
+    .replace(/^(\[web search active\]|search the web for|search on web for|search web for|search for|google for|look up|find out|search|google|tell me about|who is|what is|information on)\s+/gi, '')
+    .replace(/\?+$/, '')
+    .trim();
+
+  if (!cleanQ || cleanQ.length < 2) return null;
+
+  if (/^(hi|hello|hey|yo|sup|test|ok|thanks|thank you|bye|good morning|good night)$/i.test(cleanQ)) {
+    return null;
+  }
+
+  try {
+    const wikiSearchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQ)}&utf8=&format=json&origin=*`;
+    const searchRes = await fetch(wikiSearchUrl, { headers: { 'Accept': 'application/json' } });
+
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      const hits = searchData?.query?.search;
+      if (hits && hits.length > 0) {
+        const topHit = hits[0];
+        const pageTitle = topHit.title;
+
+        try {
+          const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`;
+          const summaryRes = await fetch(summaryUrl);
+          if (summaryRes.ok) {
+            const summaryData = await summaryRes.json();
+            const extract = summaryData.extract;
+            const pageUrl = summaryData.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`;
+            const description = summaryData.description || '';
+
+            if (extract && extract.length > 30) {
+              const relatedLinks = hits.slice(1, 4).map(h => {
+                const s = h.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"');
+                return `- [${h.title}](https://en.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, '_'))}): ${s}...`;
+              }).join('\n');
+
+              return `🌐 **World Wide Web Intelligence: "${pageTitle}"**\n\n` +
+                     (description ? `*${description}*\n\n` : '') +
+                     `${extract}\n\n` +
+                     `🔗 **Primary Verified Source**: [Read full article on Wikipedia](${pageUrl})\n\n` +
+                     (relatedLinks ? `📚 **Related Articles & Context:**\n${relatedLinks}` : '');
+            }
+          }
+        } catch (e) {}
+
+        const snippets = hits.slice(0, 3).map(h => {
+          const cleanSnippet = h.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"');
+          const link = `https://en.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, '_'))}`;
+          return `### 📄 [${h.title}](${link})\n${cleanSnippet}...\n`;
+        }).join('\n');
+
+        return `🌐 **World Wide Web Search Results for "${cleanQ}":**\n\n${snippets}`;
+      }
+    }
+  } catch (err) {
+    console.warn('[Web Search] Wikipedia API fetch error:', err);
+  }
+
+  return null;
 }
 
 function normalizeTypoPrompt(prompt) {
@@ -702,16 +823,7 @@ function generateSmartFallback(prompt, safeBotName) {
   // 1. Food & Recipes (Pancakes, Pizza, Cake, Pasta, Cooking) - Highest Priority
   if (['recipe', 'pancake', 'pancakes', 'pizza', 'cook', 'food', 'cake', 'pasta', 'dish', 'burger', 'curry', 'bake'].some(k => pLower.includes(k))) {
     if (pLower.includes('pancake') || pLower.includes('pancakes')) {
-      return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
-🧠 **Tacit Parameters**: \`(Short & Compressed)\`
-🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
-
-⚡ **Swarm Consensus Strategy**
-> **Algorithm**: Whisk dry (flour, baking powder, salt) + mix wet (milk, egg, butter); fold; cook 2 min/side on medium heat until golden.
-
----
-
-### 🥞 Classic Fluffy Pancakes Recipe
+      return `### 🥞 Classic Fluffy Homemade Pancakes Recipe
 
 Here is a quick, easy, and delicious recipe to make the fluffiest homemade pancakes!
 
@@ -756,16 +868,7 @@ Here is a quick, easy, and delicious recipe to make the fluffiest homemade panca
     }
 
     if (pLower.includes('pizza')) {
-      return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
-🧠 **Tacit Parameters**: \`(Short & Compressed)\`
-🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
-
-⚡ **Swarm Consensus Strategy**
-> **Algorithm**: Mix warm water + yeast + flour + olive oil; knead 8 min; rise 1 hr; top with tomato sauce & mozzarella; bake at 450°F (230°C) for 10-12 min.
-
----
-
-### 🍕 Homemade Margherita Pizza Recipe
+      return `### 🍕 Homemade Margherita Pizza Recipe
 
 ---
 
@@ -783,16 +886,7 @@ Here is a quick, easy, and delicious recipe to make the fluffiest homemade panca
 4. **Serve**: Top with fresh basil leaves and a drizzle of olive oil! 🍕`;
     }
 
-    return `⚡ **SWARM CONSENSUS (ALL BOTS UNITED)**: \`Follower\` \`Architect\` \`Leader\` \`Tester\`
-🧠 **Tacit Parameters**: \`(Short & Compressed)\`
-🌐 **LEARNED ARCHITECTURES**: \`Transformers\` \`ResGated\` \`Fastapi\`
-
-⚡ **Swarm Consensus Strategy**
-> **Algorithm**: Prep ingredients + sauté aromatics (garlic/onion in olive oil) + simmer main elements 15-20 min + garnish & serve hot.
-
----
-
-### 🍳 Delicious Cooking Recipe & Guide for: "${prompt}"
+    return `### 🍳 Delicious Cooking Recipe & Guide for: "${prompt}"
 
 ---
 
@@ -1201,7 +1295,61 @@ When local backend services or cloud API connections are offline/throttled, Ultr
     }
   }
 
-  // 7. General Knowledge & Conversational Assistant Core
+  // 7. Casual Humor & Jokes
+  if (['joke', 'funny', 'laugh', 'humor', 'make me smile', 'tell me a joke'].some(k => pLower.includes(k))) {
+    const jokes = [
+      `😄 **Here's a good one:**\n\nWhy do programmers prefer dark mode?\n*Because light attracts bugs!* 🐛`,
+      `😄 **Tech Humor:**\n\nThere are 10 types of people in the world:\n*Those who understand binary, and those who don't.* 💻`,
+      `😄 **Database Humor:**\n\nA SQL query walks into a bar, strolls up to two tables, and asks:\n*"Can I join you?"* 🍺`,
+      `😄 **Physics Humor:**\n\nNever trust an atom...\n*They make up literally everything!* ⚛️`
+    ];
+    return jokes[Math.floor(Math.random() * jokes.length)];
+  }
+
+  // 8. Fun Facts & Trivia
+  if (['fact', 'trivia', 'did you know', 'tell me something cool', 'interesting'].some(k => pLower.includes(k))) {
+    const facts = [
+      `🌌 **Mind-Blowing Space Fact:**\n\nOne day on Venus is longer than one whole year on Venus! Venus takes 243 Earth days to rotate once on its axis, but only 225 Earth days to orbit the Sun.`,
+      `🧬 **Fascinating Biology Fact:**\n\nIf you unraveled all the DNA molecules in your body and stretched them end to end, they would stretch from Earth to Pluto and back multiple times!`,
+      `💻 **Computing History Fact:**\n\nThe Apollo 11 guidance computer that steered humans to the Moon in 1969 had just **4 KB of RAM** and operated at **0.043 MHz** — millions of times less powerful than a modern smartwatch!`,
+      `🌊 **Ocean Wonder:**\n\nHumans have explored less than 5% of Earth's oceans. We have more detailed topography maps of the surface of Mars than of our own ocean floor!`
+    ];
+    return facts[Math.floor(Math.random() * facts.length)];
+  }
+
+  // 9. Movie & Entertainment Recommendations
+  if (['movie', 'film', 'cinema', 'watch', 'series', 'tv show', 'netflix'].some(k => pLower.includes(k))) {
+    return `🎬 **Top-Tier Curated Movie & Cinema Recommendations**\n\n` +
+           `### 🚀 Mind-Bending Sci-Fi & Thinking Cinema:\n` +
+           `- **Interstellar (2014)**: Relativistic physics, black hole wormholes, and emotional human survival.\n` +
+           `- **Inception (2010)**: Layered subconscious dream heists with incredible architectural setpieces.\n` +
+           `- **Blade Runner 2049 (2017)**: Mesmerizing visual world-building exploring identity and consciousness.\n` +
+           `- **Arrival (2016)**: First contact through linguistics, communication, and non-linear time.\n\n` +
+           `### 🧠 Gripping Thrillers & Dramas:\n` +
+           `- **The Prestige (2006)**: Obsession, sacrifice, and the ultimate magician rivalry.\n` +
+           `- **Ex Machina (2014)**: A chilling, intimate exploration of artificial general intelligence and the Turing test.\n` +
+           `- **Whiplash (2014)**: An intense psychological crucible of artistic perfection and mentorship.\n\n` +
+           `💡 *What genre are you in the mood for tonight? Let me know and I'll find the perfect match!*`;
+  }
+
+  // 10. Everyday Scientific Curiosities ("Why", "How")
+  if (pLower.includes('why is the sky blue') || pLower.includes('why sky is blue')) {
+    return `☀️ **Why is the Sky Blue?**\n\nThe sky appears blue because of a phenomenon known as **Rayleigh Scattering**:\n\n1. **Sunlight is Multi-Colored**: Sunlight contains all colors of the rainbow combined together into white light.\n2. **Atmospheric Gas Collisions**: As sunlight enters Earth's atmosphere, it collides with small nitrogen and oxygen molecules.\n3. **Wave Scattering**: Shorter wavelengths (blue and violet) scatter across the sky in all directions far more than long wavelengths (red, orange, yellow).\n4. **Human Eye Sensitivity**: Our eyes are much more sensitive to blue light than violet, so we perceive the scattered light as a beautiful bright blue!`;
+  }
+
+  if (pLower.includes('quantum computing') || pLower.includes('quantum computer')) {
+    return `⚛️ **How Quantum Computing Works (Simple & Intuitive)**\n\nTraditional computers use **bits** (either a 0 or a 1, like an on/off light switch). Quantum computers use **qubits**:\n\n- **Superposition**: A qubit can be a 0, a 1, or *both simultaneously* until observed. This allows quantum systems to evaluate massive possibilities in parallel.\n- **Entanglement**: Two qubits can become linked so that measuring one instantly reveals the other, even light-years apart.\n- **Interference**: Algorithms cancel out incorrect paths and amplify the probability of correct answers.\n\n🚀 **Practical Use Cases**: Designing life-saving medicines, cracking encryption, discovering superconductor materials, and solving ultra-complex logistics problems.`;
+  }
+
+  if (pLower.includes('black hole')) {
+    return `🕳️ **What is a Black Hole?**\n\nA **black hole** is an astronomical region where gravity is so intense that nothing — not even light — can escape its pull:\n\n- **Event Horizon**: The "point of no return" boundary. Once an object crosses the event horizon, its escape velocity exceeds the speed of light ($c = 300,000\\text{ km/s}$).\n- **Singularity**: At the center, matter is crushed into an infinitely dense gravitational singularity according to Einstein's General Relativity.\n- **How are they born?** Supermassive stars run out of nuclear fusion fuel, collapse under their own gravity in a supernova explosion, and leave behind a black hole.\n- **First Direct Image**: Captured in 2019 by the Event Horizon Telescope (EHT) of the supermassive black hole at the center of galaxy **M87**!`;
+  }
+
+  if (pLower.includes('how do planes fly') || pLower.includes('how airplanes fly') || pLower.includes('how plane flies')) {
+    return `✈️ **How Do Airplanes Fly? The 4 Forces of Flight**\n\nAn airplane stays in the air by balancing 4 fundamental physical forces:\n\n1. **Lift (Upwards)**: Generated by the wings (airfoils). Curved upper surfaces make air travel faster over the top than the bottom, lowering pressure above (Bernoulli's principle) and deflecting air down (Newton's 3rd Law).\n2. **Weight / Gravity (Downwards)**: The downward gravitational pull on the aircraft.\n3. **Thrust (Forwards)**: Produced by jet engines pushing air backwards with tremendous force.\n4. **Drag (Backwards)**: Air resistance opposing forward motion.\n\nWhen **Lift > Weight** and **Thrust > Drag**, thousands of tons of steel climb effortlessly into the sky!`;
+  }
+
+  // 11. General Knowledge & Conversational Assistant Core
   const formattedTitle = cleanPrompt ? cleanPrompt.charAt(0).toUpperCase() + cleanPrompt.slice(1) : "Your Query";
   
   return `⚡ **ULTRON AI Intelligence Core**
@@ -1265,31 +1413,51 @@ export async function testNvidiaConnection(apiKey) {
   const DEFAULT_NVIDIA_KEY = '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';
   const keyToUse = apiKey || localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
   const endpoints = ['/nvidia-api/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
+  const testModels = ['deepseek-ai/deepseek-r1', 'meta/llama-3.3-70b-instruct', 'meta/llama-3.2-11b-vision-instruct'];
   let lastErr = null;
 
   for (const ep of endpoints) {
-    try {
-      const response = await safeFetchPost(ep, {
-        model: 'meta/llama-3.2-11b-vision-instruct',
-        messages: [{ role: 'user', content: 'Hi' }],
-        temperature: 0.1,
-        max_tokens: 16
-      }, {
-        'Authorization': `Bearer ${keyToUse}`,
-        'Accept': 'application/json'
-      });
+    for (const testModel of testModels) {
+      try {
+        const response = await safeFetchPost(ep, {
+          model: testModel,
+          messages: [{ role: 'user', content: 'Hi' }],
+          temperature: 0.1,
+          max_tokens: 16
+        }, {
+          'Authorization': `Bearer ${keyToUse}`,
+          'Accept': 'application/json'
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        return { success: true, message: `Connected to NVIDIA NIM (${data.model || 'Llama 3.2 Vision'})` };
-      } else {
-        const errorText = await response.text();
-        lastErr = `NVIDIA API Error (${response.status}): ${errorText.slice(0, 100)}`;
+        if (response.ok) {
+          const data = await response.json();
+          return { success: true, message: `Connected to NVIDIA NIM (${data.model || testModel})` };
+        } else {
+          const errorText = await response.text();
+          lastErr = `NVIDIA API Error (${response.status}): ${errorText.slice(0, 100)}`;
+        }
+      } catch (err) {
+        lastErr = `Network Error: ${err.message}`;
       }
-    } catch (err) {
-      lastErr = `Network Error: ${err.message}`;
     }
   }
 
   return { success: false, message: lastErr || 'Failed to connect to NVIDIA API' };
+}
+
+export async function testGeminiConnection(apiKey) {
+  const keyToUse = apiKey || localStorage.getItem('ultron_gemini_key') || DEFAULT_GEMINI_KEY;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyToUse}`;
+    const response = await safeFetchPost(url, {
+      contents: [{ parts: [{ text: "ping" }] }]
+    });
+    if (response.ok) {
+      return { success: true, message: "Connected to Google Gemini API" };
+    } else {
+      return { success: false, message: `Gemini Error (${response.status})` };
+    }
+  } catch (err) {
+    return { success: false, message: `Network Error: ${err.message}` };
+  }
 }

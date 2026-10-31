@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:browser": "vite --open",
     "build": "vite build",
     "preview": "vite preview",
     "desktop": "electron electron/main.cjs",
-    "desktop:dev": "vite build && electron electron/main.cjs"
+    "desktop:dev": "vite build && electron electron/main.cjs",
+    "electron:dev": "vite build && electron electron/main.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

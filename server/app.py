@@ -53,7 +53,13 @@ EXPLICIT_CODE_KEYWORDS = [
 
 def query_gemini_api(prompt, bot_id='orchestrator'):
     key = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA')
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={key}'
+    models_to_try = [
+        'gemini-3.8-flash',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-2.5-flash',
+        'gemini-flash-latest'
+    ]
     headers = {'Content-Type': 'application/json'}
 
     p_lower = prompt.lower()
@@ -64,25 +70,45 @@ def query_gemini_api(prompt, bot_id='orchestrator'):
     else:
         system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion powered by Google Gemini. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user."
 
-    payload = json.dumps({
+    payload_dict = {
         'contents': [
             {'parts': [{'text': f"{system_prompt}\n\nUser Prompt: {prompt}"}]}
         ]
-    }).encode('utf-8')
+    }
+    # Enable Google Search Grounding for live information
+    if any(k in p_lower for k in ['latest', 'recent', 'today', 'news', 'who is', 'what is', 'current']):
+        payload_dict['tools'] = [{'google_search': {}}]
 
-    req = urllib.request.Request(url, data=payload, headers=headers)
-    try:
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(req, context=context, timeout=12) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode('utf-8'))
-                candidates = data.get('candidates', [])
-                if candidates:
-                    parts = candidates[0].get('content', {}).get('parts', [])
-                    if parts and parts[0].get('text'):
-                        return parts[0]['text'].strip()
-    except Exception as e:
-        print(f"[Python app.py] Gemini LLM call skipped/failed: {e}")
+    payload = json.dumps(payload_dict).encode('utf-8')
+    context = ssl._create_unverified_context()
+
+    for model_name in models_to_try:
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}'
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        try:
+            with urllib.request.urlopen(req, context=context, timeout=12) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    candidates = data.get('candidates', [])
+                    if candidates:
+                        candidate = candidates[0]
+                        parts = candidate.get('content', {}).get('parts', [])
+                        if parts and parts[0].get('text'):
+                            res_text = parts[0]['text'].strip()
+                            grounding = candidate.get('groundingMetadata')
+                            if grounding and grounding.get('groundingChunks'):
+                                sources = [
+                                    f"[{c.get('web', {}).get('title', 'Source')}]({c.get('web', {}).get('uri')})"
+                                    for c in grounding['groundingChunks'] if c.get('web', {}).get('uri')
+                                ]
+                                unique_sources = list(dict.fromkeys(sources))
+                                if unique_sources:
+                                    res_text += "\n\n🔍 **Verified Sources:**\n" + "\n".join(f"- {s}" for s in unique_sources[:4])
+                            return res_text
+        except Exception as e:
+            # Try next model in sequence
+            continue
+
     return None
 
 def query_nvidia_api(prompt, bot_id='orchestrator'):
@@ -101,27 +127,37 @@ def query_nvidia_api(prompt, bot_id='orchestrator'):
     else:
         system_prompt = f"You are ULTRON — a highly intelligent, versatile AI companion. Answer the user's prompt naturally, clearly, and comprehensively in clean markdown format, just like Gemini or ChatGPT. Do NOT force coding projects, software boilerplate, or code blocks unless code is specifically requested by the user."
 
-    payload = json.dumps({
-        'model': 'meta/llama-3.2-11b-vision-instruct',
-        'messages': [
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': prompt}
-        ],
-        'temperature': 0.3,
-        'max_tokens': 1200
-    }).encode('utf-8')
+    models_to_try = [
+        'deepseek-ai/deepseek-r1',
+        'meta/llama-3.3-70b-instruct',
+        'nvidia/nemotron-4-340b-instruct',
+        'meta/llama-3.2-11b-vision-instruct'
+    ]
 
-    req = urllib.request.Request(url, data=payload, headers=headers)
-    try:
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(req, context=context, timeout=8) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode('utf-8'))
-                answer = data.get('choices', [{}])[0].get('message', {}).get('content', '')
-                if answer and answer.strip():
-                    return answer.strip()
-    except Exception as e:
-        print(f"[Python app.py] Cloud LLM call skipped/failed: {e}")
+    context = ssl._create_unverified_context()
+
+    for model_name in models_to_try:
+        payload = json.dumps({
+            'model': model_name,
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': prompt}
+            ],
+            'temperature': 0.3,
+            'max_tokens': 1500
+        }).encode('utf-8')
+
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        try:
+            with urllib.request.urlopen(req, context=context, timeout=9) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode('utf-8'))
+                    answer = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    if answer and answer.strip():
+                        return answer.strip()
+        except Exception:
+            continue
+
     return None
 
 def query_llm_api(prompt, bot_id='orchestrator'):
@@ -1742,6 +1778,100 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
             }
 
             self._send_json(200, {"success": True, "data": solution_payload})
+
+        elif parsed.path == '/api/execute':
+            code = body.get('code', '')
+            lang = body.get('language', 'python').lower()
+            if not code.strip():
+                self._send_json(400, {"success": False, "error": "No code provided"})
+            elif lang in ['python', 'py']:
+                stdout_capture = io.StringIO()
+                stderr_capture = io.StringIO()
+                exec_ok = False
+                exec_res = ""
+                try:
+                    with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
+                        exec_globals = {"__name__": "__main__"}
+                        exec(code, exec_globals)
+                        exec_ok = True
+                        out = stdout_capture.getvalue()
+                        err = stderr_capture.getvalue()
+                        exec_res = (out + ("\n" + err if err else "")).strip() or "Program executed cleanly with 0 exit code (no stdout)."
+                except Exception as e:
+                    exec_res = f"Execution Error: {traceback.format_exc()}"
+                self._send_json(200, {"success": exec_ok, "output": exec_res})
+            else:
+                self._send_json(400, {"success": False, "error": f"Language '{lang}' execution not supported by local Python engine"})
+
+        elif parsed.path == '/api/launch-app':
+            app_name = body.get('appName', '').strip()
+            if not app_name:
+                self._send_json(400, {"success": False, "message": "No app name provided"})
+            else:
+                clean_app = app_name.lower()
+                app_commands = {
+                    'chrome': 'start chrome',
+                    'google chrome': 'start chrome',
+                    'notepad': 'start notepad',
+                    'calculator': 'start calc',
+                    'calc': 'start calc',
+                    'cmd': 'start cmd',
+                    'command prompt': 'start cmd',
+                    'terminal': 'start cmd',
+                    'powershell': 'start powershell',
+                    'explorer': 'start explorer',
+                    'file explorer': 'start explorer',
+                    'files': 'start explorer',
+                    'vscode': 'start code',
+                    'vs code': 'start code',
+                    'code': 'start code',
+                    'spotify': 'start spotify:',
+                    'word': 'start winword',
+                    'microsoft word': 'start winword',
+                    'excel': 'start excel',
+                    'microsoft excel': 'start excel',
+                    'powerpoint': 'start powerpnt',
+                    'ppt': 'start powerpnt',
+                    'vlc': 'start vlc',
+                    'paint': 'start mspaint',
+                    'task manager': 'start taskmgr',
+                    'taskmgr': 'start taskmgr',
+                    'control panel': 'start control',
+                    'settings': 'start ms-settings:',
+                    'edge': 'start msedge',
+                    'microsoft edge': 'start msedge',
+                    'firefox': 'start firefox',
+                    'discord': 'start discord:',
+                    'whatsapp': 'start whatsapp:',
+                    'snipping tool': 'start snippingtool',
+                }
+
+                is_win = sys.platform == 'win32'
+                is_mac = sys.platform == 'darwin'
+
+                if is_win:
+                    cmd = app_commands.get(clean_app, f'start "" "{clean_app}"')
+                elif is_mac:
+                    cmd = f'open -a "{clean_app}"'
+                else:
+                    cmd = f'xdg-open "{clean_app}"'
+
+                try:
+                    if is_win:
+                        subprocess.Popen(f'cmd /c {cmd}', shell=True)
+                    else:
+                        subprocess.Popen(cmd, shell=True)
+                    self._send_json(200, {
+                        "success": True,
+                        "appName": app_name,
+                        "message": f"Successfully launched '{app_name}' on PC!"
+                    })
+                except Exception as e:
+                    self._send_json(500, {
+                        "success": False,
+                        "appName": app_name,
+                        "message": f"Failed to launch '{app_name}': {str(e)}"
+                    })
 
         else:
             self._send_json(404, {"error": "Unknown Endpoint"})

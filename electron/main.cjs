@@ -244,3 +244,148 @@ ipcMain.handle('get-system-info', () => {
     pythonBackend: 'http://127.0.0.1:8000',
   };
 });
+
+ipcMain.handle('launch-desktop-app', async (_event, appName) => {
+  if (!appName || typeof appName !== 'string') {
+    return { success: false, message: 'Invalid app name provided.' };
+  }
+
+  const cleanApp = appName.trim().toLowerCase();
+
+  // Mapping for common Windows / Desktop software and protocols
+  const APP_COMMANDS = {
+    'chrome': 'start chrome',
+    'google chrome': 'start chrome',
+    'notepad': 'start notepad',
+    'calculator': 'start calc',
+    'calc': 'start calc',
+    'cmd': 'start cmd',
+    'command prompt': 'start cmd',
+    'terminal': 'start cmd',
+    'powershell': 'start powershell',
+    'explorer': 'start explorer',
+    'file explorer': 'start explorer',
+    'files': 'start explorer',
+    'vscode': 'start code',
+    'vs code': 'start code',
+    'code': 'start code',
+    'spotify': 'start spotify:',
+    'word': 'start winword',
+    'microsoft word': 'start winword',
+    'excel': 'start excel',
+    'microsoft excel': 'start excel',
+    'powerpoint': 'start powerpnt',
+    'ppt': 'start powerpnt',
+    'vlc': 'start vlc',
+    'paint': 'start mspaint',
+    'task manager': 'start taskmgr',
+    'taskmgr': 'start taskmgr',
+    'control panel': 'start control',
+    'settings': 'start ms-settings:',
+    'edge': 'start msedge',
+    'microsoft edge': 'start msedge',
+    'firefox': 'start firefox',
+    'discord': 'start discord:',
+    'whatsapp': 'start whatsapp:',
+    'snipping tool': 'start snippingtool',
+  };
+
+  const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
+
+  return new Promise((resolve) => {
+    let command = '';
+
+    if (isWin) {
+      command = APP_COMMANDS[cleanApp] || `start "" "${cleanApp}"`;
+    } else if (isMac) {
+      command = `open -a "${cleanApp}"`;
+    } else {
+      command = `xdg-open "${cleanApp}" || "${cleanApp}"`;
+    }
+
+    const { exec } = require('child_process');
+    exec(command, (error) => {
+      if (error) {
+        if (isWin && !APP_COMMANDS[cleanApp]) {
+          exec(`cmd /c start ${cleanApp}`, (err2) => {
+            if (err2) {
+              resolve({
+                success: false,
+                appName: cleanApp,
+                message: `Could not launch "${appName}" on PC. Error: ${err2.message}`
+              });
+            } else {
+              resolve({
+                success: true,
+                appName: cleanApp,
+                message: `Successfully launched "${appName}" on PC!`
+              });
+            }
+          });
+          return;
+        }
+        resolve({
+          success: false,
+          appName: cleanApp,
+          message: `Could not launch "${appName}" on PC. Error: ${error.message}`
+        });
+      } else {
+        resolve({
+          success: true,
+          appName: cleanApp,
+          message: `Successfully launched "${appName}" on PC!`
+        });
+      }
+    });
+  });
+});
+
+ipcMain.handle('desktop-list-files', async () => {
+  const ultronDir = path.join(os.homedir(), 'Downloads', 'Ultron');
+  if (!fs.existsSync(ultronDir)) {
+    try { fs.mkdirSync(ultronDir, { recursive: true }); } catch (e) {}
+  }
+  try {
+    const files = fs.readdirSync(ultronDir, { withFileTypes: true });
+    const entries = files.map(f => {
+      const fullPath = path.join(ultronDir, f.name);
+      let stat = {};
+      try { stat = fs.statSync(fullPath); } catch (e) {}
+      return {
+        name: f.name,
+        path: fullPath,
+        isDirectory: f.isDirectory(),
+        size: stat.size || 0,
+        modified: stat.mtime ? stat.mtime.toLocaleDateString() : ''
+      };
+    });
+    return { success: true, path: ultronDir, entries };
+  } catch (err) {
+    return { success: false, message: err.message, entries: [] };
+  }
+});
+
+ipcMain.handle('desktop-create-file', async (_event, payload) => {
+  const { name = 'notes.txt', content = '' } = payload || {};
+  const ultronDir = path.join(os.homedir(), 'Downloads', 'Ultron');
+  if (!fs.existsSync(ultronDir)) {
+    try { fs.mkdirSync(ultronDir, { recursive: true }); } catch (e) {}
+  }
+  const filePath = path.join(ultronDir, name);
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { success: true, path: filePath, name, message: 'Created successfully on PC' };
+  } catch (err) {
+    return { success: false, message: err.message, path: '', name };
+  }
+});
+
+ipcMain.handle('desktop-open-file', async (_event, filePath) => {
+  try {
+    await shell.openPath(filePath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+});
