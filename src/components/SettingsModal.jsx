@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
 
 export default function SettingsModal({ onClose }) {
+  const [orbitName, setOrbitName] = useState(() => localStorage.getItem('ultron_user_name') || 'SHIV');
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('ultron_gemini_key') || 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA');
   const [geminiTesting, setGeminiTesting] = useState(false);
@@ -17,48 +18,77 @@ export default function SettingsModal({ onClose }) {
   const [nvidiaStatus, setNvidiaStatus] = useState('');
 
   const handleSave = () => {
+    const cleanName = (orbitName || 'SHIV').trim().toUpperCase();
+    localStorage.setItem('ultron_user_name', cleanName);
     localStorage.setItem('ultron_ai_model', activeModel);
     localStorage.setItem('ultron_gemini_key', geminiKey);
     localStorage.setItem('ultron_nvidia_key', nvidiaKey);
     localStorage.setItem('ultron_tts_voice', selectedVoice);
     localStorage.setItem('ultron_voice_speed', voiceSpeed);
     localStorage.setItem('ultron_human_companion', humanCompanion ? 'true' : 'false');
-    setStatusMsg('Settings saved successfully!');
+    
+    window.dispatchEvent(new CustomEvent('ultron-name-update', { detail: { name: cleanName } }));
+    setStatusMsg('Settings & Orbit identity updated!');
     setTimeout(() => {
       setStatusMsg('');
       onClose();
     }, 1200);
   };
 
+  const handleNameChange = (val) => {
+    setOrbitName(val);
+    window.dispatchEvent(new CustomEvent('ultron-name-update', { detail: { name: val } }));
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 pt-14 animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative flex flex-col gap-4 border border-rose-900/60 max-h-[90vh] overflow-y-auto bg-zinc-950/95 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pt-14 animate-in fade-in duration-200">
+      <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative flex flex-col gap-4 border border-cyan-500/40 max-h-[90vh] overflow-y-auto bg-zinc-950/95 shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-rose-400 hover:text-white hover:bg-rose-900/40"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 border-b border-rose-900/40 pb-3">
-          <Sliders className="w-5 h-5 text-rose-500 animate-pulse" />
+        <div className="flex items-center gap-2 border-b border-cyan-900/40 pb-3">
+          <Sliders className="w-5 h-5 text-cyan-400 animate-pulse" />
           <div>
-            <h2 className="text-lg font-bold text-rose-300">ULTRON Swarm Core Settings</h2>
-            <p className="text-xs text-rose-300/60">Configure inference engines, speech synthesis, & companion mode.</p>
+            <h2 className="text-lg font-bold text-cyan-300">ULTRON Swarm Core Settings</h2>
+            <p className="text-xs text-slate-400">Configure operator identity, inference engines, & speech synthesis.</p>
           </div>
         </div>
 
         {statusMsg && (
-          <div className="p-2.5 bg-green-950/40 border border-green-800/40 rounded-xl text-xs text-green-400 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" /> {statusMsg}
+          <div className="p-2.5 bg-emerald-950/50 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {statusMsg}
           </div>
         )}
 
+        {/* OPERATOR ORBIT IDENTITY SECTION */}
+        <div className="p-3 bg-black/60 border border-cyan-900/60 rounded-xl flex flex-col gap-2 shadow-inner">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+            <span className="flex items-center gap-1.5">
+              <User className="w-4 h-4 text-cyan-400" /> 3D ORBIT OPERATOR NAME
+            </span>
+            <span className="text-[10px] text-cyan-400/80 font-mono">Rotating Satellite Badge</span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed">
+            Your name floats in neon holographic typography on the rotating 3D orbit circle around the atom.
+          </p>
+          <input
+            type="text"
+            value={orbitName}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="e.g. SHIV"
+            className="w-full bg-slate-900/90 border border-cyan-700/60 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono tracking-wider uppercase font-bold"
+          />
+        </div>
+
         {/* ONLINE AI Section */}
-        <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs font-bold text-rose-400">
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
             <span>ONLINE AI ENGINES & FRONTIER MODELS</span>
-            <span className="text-[10px] text-green-400 bg-green-950/40 px-2 py-0.5 rounded border border-green-800/40">Active 2026 Fleet</span>
+            <span className="text-[10px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active 2026 Fleet</span>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -121,7 +151,7 @@ export default function SettingsModal({ onClose }) {
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] text-rose-300 font-mono">NVIDIA NIM API KEY (FALLBACK / DEEPSEEK)</label>
+                <label className="text-[10px] text-cyan-300 font-mono">NVIDIA NIM API KEY (FALLBACK / DEEPSEEK)</label>
                 {nvidiaStatus && (
                   <span className={`text-[10px] font-mono ${nvidiaStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {nvidiaStatus}
@@ -137,7 +167,7 @@ export default function SettingsModal({ onClose }) {
                     setNvidiaStatus('');
                   }}
                   placeholder="NVIDIA NIM API Key (nvapi-...)"
-                  className="flex-1 bg-black/80 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 font-mono focus:outline-none focus:border-rose-500"
+                  className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   type="button"
@@ -149,11 +179,11 @@ export default function SettingsModal({ onClose }) {
                     setNvidiaTesting(false);
                     setNvidiaStatus(res.message);
                   }}
-                  className="px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-3 py-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/60 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                   title="Test NVIDIA NIM Connection"
                 >
                   {nvidiaTesting ? (
-                    <RefreshCw className="w-3 h-3 animate-spin text-rose-400" />
+                    <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
                   ) : (
                     <span>Test</span>
                   )}
@@ -164,9 +194,9 @@ export default function SettingsModal({ onClose }) {
         </div>
 
         {/* VOICE (TTS) Section */}
-        <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs font-bold text-rose-400">
-            <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-rose-500" /> VOICE (TTS)</span>
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+            <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-cyan-400" /> VOICE (TTS)</span>
             <span className="text-[10px] text-yellow-400 font-mono">Native Speech Engine</span>
           </div>
 
@@ -174,7 +204,7 @@ export default function SettingsModal({ onClose }) {
             <select
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              className="flex-1 bg-black/90 border border-rose-900/60 rounded-xl px-3 py-2 text-xs text-rose-100 focus:outline-none focus:border-rose-500 font-sans"
+              className="flex-1 bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-sans"
             >
               {Object.entries(VOICE_OPTIONS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
@@ -184,14 +214,14 @@ export default function SettingsModal({ onClose }) {
             <button
               type="button"
               onClick={() => testVoice(selectedVoice)}
-              className="px-3 py-2 rounded-xl text-xs text-rose-200 bg-rose-900/50 hover:bg-rose-800/50 border border-rose-700/50 flex items-center gap-1.5 transition-all"
+              className="px-3 py-2 rounded-xl text-xs text-cyan-200 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-700/50 flex items-center gap-1.5 transition-all"
             >
-              <Volume2 className="w-4 h-4 text-rose-400" /> Test
+              <Volume2 className="w-4 h-4 text-cyan-400" /> Test
             </button>
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-rose-300/70">Voice Speed</span>
+            <span className="text-xs text-slate-300">Voice Speed</span>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -200,20 +230,20 @@ export default function SettingsModal({ onClose }) {
                 step="0.1"
                 value={voiceSpeed}
                 onChange={(e) => setVoiceSpeed(e.target.value)}
-                className="accent-rose-500 w-28"
+                className="accent-cyan-400 w-28"
               />
-              <span className="text-xs font-mono text-rose-300">{voiceSpeed}x</span>
+              <span className="text-xs font-mono text-cyan-300">{voiceSpeed}x</span>
             </div>
           </div>
         </div>
 
         {/* HUMAN COMPANION EXPERIENCE Toggle */}
-        <div className="p-3 bg-black/60 border border-rose-950 rounded-xl flex items-center justify-between">
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-rose-500 animate-pulse" /> HUMAN COMPANION EXPERIENCE
+            <div className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> HUMAN COMPANION EXPERIENCE
             </div>
-            <div className="text-[10px] text-rose-300/50">Living presence, acoustic felt chimes & conversational voice</div>
+            <div className="text-[10px] text-slate-400">Living presence, acoustic felt chimes & conversational voice</div>
           </div>
 
           <button
@@ -230,16 +260,16 @@ export default function SettingsModal({ onClose }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-rose-900/40">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-cyan-900/40">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-950/40"
+            className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:bg-white/10"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="cyber-button px-4 py-2 rounded-xl text-xs text-rose-100 font-bold"
+            className="px-4 py-2 rounded-xl text-xs text-cyan-950 bg-cyan-400 hover:bg-cyan-300 font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer"
           >
             Save Settings
           </button>

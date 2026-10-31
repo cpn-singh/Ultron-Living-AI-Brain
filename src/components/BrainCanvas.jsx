@@ -271,6 +271,196 @@ export default function BrainCanvas() {
       });
     }
 
+    // ── 6b. TEXT WRITTEN DIRECTLY ON THE ROTATING CIRCLE (Zero Card / Zero Box) ──
+    const userOrbit = orbits[0];
+    function getStoredUserName() {
+      try {
+        const custom = localStorage.getItem('ultron_user_name');
+        if (custom && custom.trim()) return custom.trim();
+        const storedUser = localStorage.getItem('ultron_user');
+        if (storedUser) {
+          const u = JSON.parse(storedUser);
+          if (u && u.name && u.name !== 'ULTRON User' && u.name !== 'Guest Explorer') {
+            return u.name.trim();
+          }
+        }
+      } catch (e) {}
+      return 'SHIV';
+    }
+
+    let currentName = getStoredUserName();
+
+    // 1. Inscribed curved text ribbon directly along the circular orbit ring
+    function createOrbitTextRibbon(orbit, text) {
+      const segments = 360;
+      const geom = new THREE.BufferGeometry();
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      const ribbonHeight = 11;
+
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        const x = cos * orbit.radiusX;
+        const y = sin * orbit.radiusY;
+
+        // Extrude along local Z so ribbon stands upright on the ellipse in world space:
+        // Local -Z rotates to World +Y (UP)
+        // Local +Z rotates to World -Y (DOWN)
+        positions.push(x, y, -ribbonHeight / 2); // world UP
+        positions.push(x, y, ribbonHeight / 2);  // world DOWN
+
+        const u = 1 - (i / segments);
+        uvs.push(u, 1); // V=1 (TOP of text) at world UP
+        uvs.push(u, 0); // V=0 (BOTTOM of text) at world DOWN
+      }
+
+      for (let i = 0; i < segments; i++) {
+        const base = i * 2;
+        indices.push(base, base + 2, base + 1);
+        indices.push(base + 1, base + 2, base + 3);
+      }
+
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geom.setIndex(indices);
+      geom.computeVertexNormals();
+
+      // High-resolution 4K canvas for razor-sharp text clarity
+      const canvas = document.createElement('canvas');
+      canvas.width = 4096;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      function drawCanvasText(n) {
+        ctx.clearRect(0, 0, 4096, 256); // 100% transparent - NO box, NO capsule!
+        const disp = (n || 'SHIV').trim().toUpperCase();
+        const reps = 6;
+        const step = 4096 / reps;
+
+        // Thin glowing pinkish neon line running through the circle
+        ctx.strokeStyle = "rgba(255, 60, 160, 0.55)";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#ff2d88";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(0, 128);
+        ctx.lineTo(4096, 128);
+        ctx.stroke();
+
+        // Clear spots on the line for clean text contrast
+        for (let i = 0; i < reps; i++) {
+          const xPos = i * step + step / 2;
+          ctx.clearRect(xPos - 110, 50, 220, 156);
+        }
+
+        // Semi-bold (weight 600) pinkish glowing text
+        ctx.font = '600 50px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Outer neon pink glow pass
+        ctx.shadowColor = "rgba(255, 45, 140, 1.0)";
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "#ff55a3";
+        for (let i = 0; i < reps; i++) {
+          const xPos = i * step + step / 2;
+          ctx.fillText(disp, xPos, 128);
+        }
+
+        // Inner crisp semi-bold highlight pass (soft pinkish-white for razor sharpness)
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffe6f2";
+        for (let i = 0; i < reps; i++) {
+          const xPos = i * step + step / 2;
+          ctx.fillText(disp, xPos, 128);
+        }
+      }
+
+      drawCanvasText(text);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = true;
+      texture.anisotropy = 16;
+      texture.needsUpdate = true;
+
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 0.96,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.rotation.copy(orbit.line.rotation);
+      orbitGroup.add(mesh);
+
+      return { mesh, texture, updateText: (newName) => {
+        drawCanvasText(newName);
+        texture.needsUpdate = true;
+      }};
+    }
+
+    const orbitRibbon = createOrbitTextRibbon(userOrbit, currentName);
+
+    // Glowing pink orbital satellite node traveling on the line
+    function makePinkOrbitDotTex() {
+      const c = document.createElement("canvas");
+      c.width = c.height = 64;
+      const ctx = c.getContext("2d");
+      const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0,    "rgba(255, 235, 245, 1.0)");
+      g.addColorStop(0.25, "rgba(255, 60, 150, 0.85)");
+      g.addColorStop(1,    "rgba(255, 30, 120, 0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const nameNodeMat = new THREE.SpriteMaterial({
+      map: makePinkOrbitDotTex(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+      opacity: 1.0,
+    });
+    const nameNode = new THREE.Sprite(nameNodeMat);
+    nameNode.scale.setScalar(14);
+    atom.add(nameNode);
+
+    let nameOrbitAngle = 0;
+    const nameOrbitSpeed = 0.0022;
+
+    function updateUserNameOrbit() {
+      nameOrbitAngle += nameOrbitSpeed;
+      const dotPos = new THREE.Vector3(
+        Math.cos(nameOrbitAngle) * userOrbit.radiusX,
+        Math.sin(nameOrbitAngle) * userOrbit.radiusY,
+        0
+      );
+      dotPos.applyEuler(userOrbit.line.rotation);
+
+      // Glowing satellite dot positioned directly on the circular line path
+      nameNode.position.copy(dotPos);
+    }
+
+    const handleNameChange = (e) => {
+      const updated = e.detail?.name || getStoredUserName();
+      if (orbitRibbon) orbitRibbon.updateText(updated);
+    };
+    window.addEventListener('ultron-name-update', handleNameChange);
+
     // ── 7. AMBIENT VOLUMETRIC GLOW ─────────────────────────────
     function makeVolumeTex() {
       const c = document.createElement("canvas");
@@ -324,6 +514,11 @@ export default function BrainCanvas() {
 
       controls.update();
       updateOrbitDots();
+      updateUserNameOrbit();
+
+      if (orbitRibbon && orbitRibbon.texture) {
+        orbitRibbon.texture.offset.x -= 0.0015;
+      }
 
       volSpr.scale.setScalar(720 + Math.sin(t * 0.7) * 30);
 
@@ -346,6 +541,13 @@ export default function BrainCanvas() {
       window.removeEventListener('brain-zoom-in', handleZoomIn);
       window.removeEventListener('brain-zoom-out', handleZoomOut);
       window.removeEventListener('brain-reset-view', handleResetView);
+      window.removeEventListener('ultron-name-update', handleNameChange);
+      if (orbitRibbon && orbitRibbon.mesh) {
+        orbitGroup.remove(orbitRibbon.mesh);
+        orbitRibbon.mesh.geometry.dispose();
+        orbitRibbon.mesh.material.dispose();
+        orbitRibbon.texture.dispose();
+      }
       controls.dispose();
       ro.disconnect();
       renderer.dispose();
