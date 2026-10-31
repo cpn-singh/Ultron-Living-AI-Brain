@@ -4,7 +4,11 @@ import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
 
 export default function SettingsModal({ onClose }) {
-  const [orbitName, setOrbitName] = useState(() => localStorage.getItem('ultron_user_name') || 'SHIV');
+  const [orbitName, setOrbitName] = useState(() => {
+    const val = localStorage.getItem('ultron_user_name');
+    if (!val || val.trim().toUpperCase() === 'SHIV') return 'Shiv Loves Gabriela';
+    return val;
+  });
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('ultron_gemini_key') || 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA');
   const [geminiTesting, setGeminiTesting] = useState(false);
@@ -18,7 +22,7 @@ export default function SettingsModal({ onClose }) {
   const [nvidiaStatus, setNvidiaStatus] = useState('');
 
   const handleSave = () => {
-    const cleanName = (orbitName || 'SHIV').trim().toUpperCase();
+    const cleanName = (orbitName || 'Shiv Loves Gabriela').trim();
     localStorage.setItem('ultron_user_name', cleanName);
     localStorage.setItem('ultron_ai_model', activeModel);
     localStorage.setItem('ultron_gemini_key', geminiKey);

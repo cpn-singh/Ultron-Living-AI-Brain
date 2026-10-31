@@ -276,7 +276,7 @@ export default function BrainCanvas() {
     function getStoredUserName() {
       try {
         const custom = localStorage.getItem('ultron_user_name');
-        if (custom && custom.trim()) return custom.trim();
+        if (custom && custom.trim() && custom.trim().toUpperCase() !== 'SHIV') return custom.trim();
         const storedUser = localStorage.getItem('ultron_user');
         if (storedUser) {
           const u = JSON.parse(storedUser);
@@ -285,12 +285,12 @@ export default function BrainCanvas() {
           }
         }
       } catch (e) {}
-      return 'SHIV';
+      return 'Shiv Loves Gabriela';
     }
 
     let currentName = getStoredUserName();
 
-    // 1. Inscribed curved text ribbon directly along the circular orbit ring
+    // 1. Inscribed curved text ribbon directly along the circular orbit ring (Zero-stretch physical UVs)
     function createOrbitTextRibbon(orbit, text) {
       const segments = 360;
       const geom = new THREE.BufferGeometry();
@@ -298,23 +298,41 @@ export default function BrainCanvas() {
       const uvs = [];
       const indices = [];
 
-      const ribbonHeight = 11;
+      const ribbonHeight = 10;
+
+      // Calculate true equidistant arc lengths around the ellipse to eliminate any stretching
+      const pts = [];
+      const arcLengths = [0];
+      let totalLength = 0;
 
       for (let i = 0; i <= segments; i++) {
-        const angle = (i / segments) * Math.PI * 2;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
+        const theta = (i / segments) * Math.PI * 2;
+        const x = Math.cos(theta) * orbit.radiusX;
+        const y = Math.sin(theta) * orbit.radiusY;
+        pts.push({ x, y });
 
-        const x = cos * orbit.radiusX;
-        const y = sin * orbit.radiusY;
+        if (i > 0) {
+          const dx = x - pts[i - 1].x;
+          const dy = y - pts[i - 1].y;
+          totalLength += Math.sqrt(dx * dx + dy * dy);
+          arcLengths.push(totalLength);
+        }
+      }
 
-        // Extrude along local Z so ribbon stands upright on the ellipse in world space:
+      // Tile has exact 16:1 physical aspect ratio (160 world units length by 10 world units height)
+      const tileWorldWidth = 160;
+
+      for (let i = 0; i <= segments; i++) {
+        const pt = pts[i];
+
+        // Extrude along local Z so ribbon stands upright in world space:
         // Local -Z rotates to World +Y (UP)
         // Local +Z rotates to World -Y (DOWN)
-        positions.push(x, y, -ribbonHeight / 2); // world UP
-        positions.push(x, y, ribbonHeight / 2);  // world DOWN
+        positions.push(pt.x, pt.y, -ribbonHeight / 2); // world UP
+        positions.push(pt.x, pt.y, ribbonHeight / 2);  // world DOWN
 
-        const u = 1 - (i / segments);
+        // Truly equidistant arc-length UV coordinate (guarantees zero stretching)
+        const u = (totalLength - arcLengths[i]) / tileWorldWidth;
         uvs.push(u, 1); // V=1 (TOP of text) at world UP
         uvs.push(u, 0); // V=0 (BOTTOM of text) at world DOWN
       }
@@ -330,7 +348,7 @@ export default function BrainCanvas() {
       geom.setIndex(indices);
       geom.computeVertexNormals();
 
-      // High-resolution 4K canvas for razor-sharp text clarity
+      // High-resolution canvas matching exact 16:1 aspect ratio (4096 x 256)
       const canvas = document.createElement('canvas');
       canvas.width = 4096;
       canvas.height = 256;
@@ -338,47 +356,36 @@ export default function BrainCanvas() {
 
       function drawCanvasText(n) {
         ctx.clearRect(0, 0, 4096, 256); // 100% transparent - NO box, NO capsule!
-        const disp = (n || 'SHIV').trim().toUpperCase();
-        const reps = 6;
-        const step = 4096 / reps;
+        const disp = (n || 'Shiv Loves Gabriela').trim();
 
         // Thin glowing pinkish neon line running through the circle
         ctx.strokeStyle = "rgba(255, 60, 160, 0.55)";
         ctx.lineWidth = 4;
         ctx.shadowColor = "#ff2d88";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.moveTo(0, 128);
         ctx.lineTo(4096, 128);
         ctx.stroke();
 
-        // Clear spots on the line for clean text contrast
-        for (let i = 0; i < reps; i++) {
-          const xPos = i * step + step / 2;
-          ctx.clearRect(xPos - 110, 50, 220, 156);
-        }
+        // Clear line behind text with balanced margins for "Shiv Loves Gabriela"
+        ctx.clearRect(2048 - 450, 50, 900, 156);
 
-        // Semi-bold (weight 600) pinkish glowing text
-        ctx.font = '600 50px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        // Semi-bold (weight 600) pinkish glowing text in natural unstretched font proportions
+        ctx.font = '600 44px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         // Outer neon pink glow pass
         ctx.shadowColor = "rgba(255, 45, 140, 1.0)";
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 14;
         ctx.fillStyle = "#ff55a3";
-        for (let i = 0; i < reps; i++) {
-          const xPos = i * step + step / 2;
-          ctx.fillText(disp, xPos, 128);
-        }
+        ctx.fillText(disp, 2048, 128);
 
-        // Inner crisp semi-bold highlight pass (soft pinkish-white for razor sharpness)
+        // Inner crisp semi-bold highlight pass (soft pinkish-white)
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#ffe6f2";
-        for (let i = 0; i < reps; i++) {
-          const xPos = i * step + step / 2;
-          ctx.fillText(disp, xPos, 128);
-        }
+        ctx.fillText(disp, 2048, 128);
       }
 
       drawCanvasText(text);
