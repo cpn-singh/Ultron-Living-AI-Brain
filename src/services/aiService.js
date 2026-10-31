@@ -279,11 +279,11 @@ export async function fetchLiveWebKnowledge(query) {
                 return `- [${h.title}](https://en.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, '_'))}): ${s}...`;
               }).join('\n');
 
-              return `🌐 **World Wide Web Intelligence: "${pageTitle}"**\n\n` +
+              return `### Web Intelligence: "${pageTitle}"\n\n` +
                      (description ? `*${description}*\n\n` : '') +
                      `${extract}\n\n` +
-                     `🔗 **Primary Verified Source**: [Read full article on Wikipedia](${pageUrl})\n\n` +
-                     (relatedLinks ? `📚 **Related Articles & Context:**\n${relatedLinks}` : '');
+                     `**Primary Verified Source**: [Read full article on Wikipedia](${pageUrl})\n\n` +
+                     (relatedLinks ? `**Related Articles & Context:**\n${relatedLinks}` : '');
             }
           }
         } catch (e) {}
@@ -291,10 +291,10 @@ export async function fetchLiveWebKnowledge(query) {
         const snippets = hits.slice(0, 3).map(h => {
           const cleanSnippet = h.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"');
           const link = `https://en.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, '_'))}`;
-          return `### 📄 [${h.title}](${link})\n${cleanSnippet}...\n`;
+          return `### [${h.title}](${link})\n${cleanSnippet}...\n`;
         }).join('\n');
 
-        return `🌐 **World Wide Web Search Results for "${cleanQ}":**\n\n${snippets}`;
+        return `### Search Results for "${cleanQ}":\n\n${snippets}`;
       }
     }
   } catch (err) {

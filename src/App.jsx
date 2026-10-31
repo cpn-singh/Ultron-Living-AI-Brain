@@ -129,7 +129,7 @@ export default function App() {
 
       {/* Top Header Navigation */}
       <Navbar 
-        activeAgent={activeAgent}
+        activeAgent={activeAgent} 
         setActiveAgent={setActiveAgent}
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -187,17 +187,17 @@ export default function App() {
             )}
           </section>
         )}
-
-        {/* Floating Compact Chat Drawer (Bottom-Right Corner) */}
-        {activeTab === 'chat' && (
-          <ChatDrawer 
-            activeAgent={activeAgent} 
-            setActiveAgent={setActiveAgent}
-            onSwitchTab={setActiveTab} 
-            speechTriggerText={speechTriggerText} 
-          />
-        )}
       </main>
+
+      {/* Floating Right-Docked Chat Drawer */}
+      {activeTab === 'chat' && (
+        <ChatDrawer 
+          activeAgent={activeAgent} 
+          setActiveAgent={setActiveAgent}
+          onSwitchTab={setActiveTab} 
+          speechTriggerText={speechTriggerText} 
+        />
+      )}
 
       {/* Central Floating Dock Bar */}
       <BotDockBar 

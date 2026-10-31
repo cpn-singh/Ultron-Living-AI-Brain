@@ -29,7 +29,7 @@ export default function MarkdownRenderer({ content }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 font-sans text-rose-100">
+    <div className="flex flex-col gap-2 font-sans text-slate-100">
       {parts.map((part, index) => {
         if (part.type === 'codeblock') {
           return <CodeBlockItem key={index} language={part.language} code={part.code} />;
@@ -67,15 +67,15 @@ function CodeBlockItem({ language, code }) {
       const originalWarn = console.warn;
       try {
         console.log = (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' '));
-        console.error = (...args) => logs.push('❌ ' + args.map(a => String(a)).join(' '));
-        console.warn = (...args) => logs.push('⚠️ ' + args.map(a => String(a)).join(' '));
+        console.error = (...args) => logs.push('ERROR: ' + args.map(a => String(a)).join(' '));
+        console.warn = (...args) => logs.push('WARN: ' + args.map(a => String(a)).join(' '));
 
         const asyncFn = new Function(`return (async () => { ${code} })()`);
         const result = await asyncFn();
         if (result !== undefined) {
           logs.push('=> ' + (typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)));
         }
-        setOutput(logs.join('\n') || 'Program completed cleanly with 0 exit code (no stdout).');
+        setOutput(logs.join('\n') || 'Program completed with no output.');
       } catch (err) {
         setOutput(`Runtime Error: ${err.message}`);
       } finally {
@@ -95,10 +95,10 @@ function CodeBlockItem({ language, code }) {
           const data = await res.json();
           setOutput(data.output || (data.success ? 'Program executed cleanly.' : data.error));
         } else {
-          setOutput(`[Python Sandbox Engine Offline]\nStart backend with 'python server/app.py' to run locally on your PC.`);
+          setOutput(`Python Sandbox Engine Offline. Run 'python server/app.py' to execute directly.`);
         }
       } catch (err) {
-        setOutput(`[Python Sandbox Engine Offline]\nStart backend with 'python server/app.py' to execute directly.`);
+        setOutput(`Python Sandbox Engine Offline. Run 'python server/app.py' to execute directly.`);
       } finally {
         setIsRunning(false);
       }
@@ -106,11 +106,11 @@ function CodeBlockItem({ language, code }) {
   };
 
   return (
-    <div className="my-2 rounded-xl bg-[#090d16] border border-rose-900/50 overflow-hidden font-mono text-xs shadow-lg">
+    <div className="my-2 rounded-xl bg-[#040814] border border-cyan-900/50 overflow-hidden font-mono text-xs shadow-lg">
       {/* Code Header Toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-rose-900/40 text-[11px]">
-        <span className="text-rose-400 font-semibold flex items-center gap-1.5 uppercase tracking-wider">
-          <Code className="w-3.5 h-3.5 text-rose-500" /> {language}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950/90 border-b border-cyan-900/40 text-[11px]">
+        <span className="text-cyan-300 font-semibold flex items-center gap-1.5 uppercase tracking-wider">
+          <Code className="w-3.5 h-3.5 text-cyan-400" /> {language}
         </span>
         <div className="flex items-center gap-2">
           {/* Live Run Button */}
@@ -118,7 +118,7 @@ function CodeBlockItem({ language, code }) {
             <button
               onClick={handleRunCode}
               disabled={isRunning}
-              className="flex items-center gap-1 text-cyan-300 hover:text-cyan-200 px-2 py-0.5 rounded bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/40 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 text-cyan-300 hover:text-cyan-200 px-2 py-0.5 rounded bg-cyan-950/50 hover:bg-cyan-900/60 border border-cyan-800/50 transition-colors disabled:opacity-50"
               title="Run code in local sandbox"
             >
               {isRunning ? <Loader2 className="w-3 h-3 animate-spin text-cyan-400" /> : <Play className="w-3 h-3 text-cyan-400 fill-cyan-400" />}
@@ -130,10 +130,10 @@ function CodeBlockItem({ language, code }) {
           {isHtml && (
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className="flex items-center gap-1 text-purple-300 hover:text-purple-200 px-2 py-0.5 rounded bg-purple-950/40 hover:bg-purple-900/50 border border-purple-800/40 transition-colors"
+              className="flex items-center gap-1 text-sky-300 hover:text-sky-200 px-2 py-0.5 rounded bg-sky-950/50 hover:bg-sky-900/60 border border-sky-800/50 transition-colors"
               title="Toggle Live HTML Preview"
             >
-              <Eye className="w-3 h-3 text-purple-400" />
+              <Eye className="w-3 h-3 text-sky-400" />
               <span>{showPreview ? 'Hide' : 'Preview'}</span>
             </button>
           )}
@@ -141,7 +141,7 @@ function CodeBlockItem({ language, code }) {
           {/* Copy Button */}
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 text-rose-300/70 hover:text-rose-200 px-2 py-0.5 rounded hover:bg-rose-900/40 transition-colors"
+            className="flex items-center gap-1 text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded hover:bg-white/10 transition-colors"
           >
             {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -150,16 +150,16 @@ function CodeBlockItem({ language, code }) {
       </div>
 
       {/* Code Content */}
-      <pre className="p-3 overflow-x-auto text-rose-200/90 leading-relaxed text-[11px] font-mono">
+      <pre className="p-3 overflow-x-auto text-slate-100 leading-relaxed text-[11px] font-mono">
         <code>{code}</code>
       </pre>
 
       {/* Interactive Terminal Output Drawer */}
       {output !== null && (
-        <div className="border-t border-cyan-900/40 bg-black/90 p-3 flex flex-col gap-1 text-[11px]">
+        <div className="border-t border-cyan-900/40 bg-black/95 p-3 flex flex-col gap-1 text-[11px]">
           <div className="flex items-center justify-between text-cyan-400 font-mono text-[10px] pb-1 border-b border-cyan-950">
             <span className="flex items-center gap-1.5 font-bold">
-              <Terminal className="w-3 h-3 text-cyan-400" /> SANDBOX TERMINAL OUTPUT
+              <Terminal className="w-3 h-3 text-cyan-400" /> Sandbox Output
             </span>
             <button
               onClick={() => setOutput(null)}
@@ -177,10 +177,10 @@ function CodeBlockItem({ language, code }) {
 
       {/* Live HTML Preview Frame */}
       {showPreview && isHtml && (
-        <div className="border-t border-purple-900/40 bg-white p-2">
+        <div className="border-t border-cyan-900/40 bg-white p-2">
           <div className="flex items-center justify-between text-slate-800 font-sans text-[10px] pb-1 border-b border-slate-200 mb-1">
             <span className="font-bold flex items-center gap-1">
-              <Eye className="w-3 h-3 text-purple-600" /> Live HTML Component Sandbox
+              <Eye className="w-3 h-3 text-sky-600" /> Live HTML Preview
             </span>
             <button onClick={() => setShowPreview(false)} className="text-slate-400 hover:text-slate-800">
               <X className="w-3 h-3" />
@@ -199,32 +199,39 @@ function CodeBlockItem({ language, code }) {
 }
 
 function FormattedTextPart({ text }) {
-  const lines = text.split('\n');
+  // Strip decorative emoji symbols from text display as requested
+  const cleanText = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').replace(/[ \t]{2,}/g, ' ');
+  const lines = cleanText.split('\n');
 
   return (
-    <div className="flex flex-col gap-1 leading-relaxed">
+    <div className="flex flex-col gap-1.5 leading-relaxed">
       {lines.map((line, idx) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={idx} className="h-1" />;
 
-        // Headings
+        // Horizontal Separator
+        if (trimmed === '---' || trimmed === '***') {
+          return <div key={idx} className="w-full h-[1px] bg-white/10 my-1" />;
+        }
+
+        // Headings - Clean Cyan & Sky High-Contrast Colors
         if (line.startsWith('### ')) {
           return (
-            <h3 key={idx} className="text-sm font-bold text-rose-400 mt-2 mb-0.5 border-b border-rose-900/30 pb-0.5">
+            <h3 key={idx} className="text-sm font-bold text-cyan-300 mt-2 mb-0.5 border-b border-cyan-900/30 pb-0.5">
               {parseInlineFormatting(line.slice(4))}
             </h3>
           );
         }
         if (line.startsWith('## ')) {
           return (
-            <h2 key={idx} className="text-base font-bold text-rose-300 mt-2 mb-1">
+            <h2 key={idx} className="text-base font-bold text-sky-300 mt-2.5 mb-1">
               {parseInlineFormatting(line.slice(3))}
             </h2>
           );
         }
         if (line.startsWith('# ')) {
           return (
-            <h1 key={idx} className="text-lg font-bold text-rose-200 mt-2 mb-1">
+            <h1 key={idx} className="text-lg font-bold text-cyan-200 mt-3 mb-1">
               {parseInlineFormatting(line.slice(2))}
             </h1>
           );
@@ -233,8 +240,8 @@ function FormattedTextPart({ text }) {
         // Bullet Lists
         if (line.startsWith('- ') || line.startsWith('* ')) {
           return (
-            <div key={idx} className="flex items-start gap-2 pl-2 my-0.5 text-xs text-rose-200/90">
-              <span className="text-rose-500 font-bold mt-0.5">•</span>
+            <div key={idx} className="flex items-start gap-2 pl-2 my-0.5 text-xs text-slate-100 leading-relaxed">
+              <span className="text-cyan-400 font-bold mt-0.5">•</span>
               <span>{parseInlineFormatting(line.slice(2))}</span>
             </div>
           );
@@ -244,16 +251,16 @@ function FormattedTextPart({ text }) {
         const numMatch = line.match(/^(\d+)\.\s+(.*)/);
         if (numMatch) {
           return (
-            <div key={idx} className="flex items-start gap-2 pl-2 my-0.5 text-xs text-rose-200/90">
-              <span className="text-rose-400 font-mono text-[11px] font-bold">{numMatch[1]}.</span>
+            <div key={idx} className="flex items-start gap-2 pl-2 my-0.5 text-xs text-slate-100 leading-relaxed">
+              <span className="text-cyan-400 font-mono text-[11px] font-bold">{numMatch[1]}.</span>
               <span>{parseInlineFormatting(numMatch[2])}</span>
             </div>
           );
         }
 
-        // Standard Paragraph
+        // Standard Paragraph - Soft White / Light Slate (Crisp & Readable)
         return (
-          <p key={idx} className="text-xs sm:text-sm text-rose-100/90 leading-relaxed">
+          <p key={idx} className="text-xs sm:text-sm text-slate-100 leading-relaxed font-normal">
             {parseInlineFormatting(line)}
           </p>
         );
@@ -269,14 +276,14 @@ function parseInlineFormatting(text) {
 
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-rose-200">{part.slice(2, -2)}</strong>;
+      return <strong key={i} className="font-bold text-white tracking-wide">{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={i} className="italic text-rose-300/90">{part.slice(1, -1)}</em>;
+      return <em key={i} className="italic text-cyan-200/90 font-medium">{part.slice(1, -1)}</em>;
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code key={i} className="bg-black/60 text-rose-300 font-mono text-[11px] px-1.5 py-0.5 rounded border border-rose-900/40">
+        <code key={i} className="bg-slate-900/90 text-cyan-300 font-mono text-[11px] px-1.5 py-0.5 rounded border border-cyan-800/40">
           {part.slice(1, -1)}
         </code>
       );
@@ -296,7 +303,7 @@ function parseInlineFormatting(text) {
               window.electronAPI.openExternal(linkUrl);
             }
           }}
-          className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors inline-flex items-center gap-0.5 font-medium cursor-pointer"
+          className="text-cyan-400 hover:text-cyan-200 underline underline-offset-2 transition-colors inline-flex items-center gap-0.5 font-semibold cursor-pointer"
         >
           {linkText}
         </a>
