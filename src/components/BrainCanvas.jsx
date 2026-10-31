@@ -276,7 +276,7 @@ export default function BrainCanvas() {
     function getStoredUserName() {
       try {
         const custom = localStorage.getItem('ultron_user_name');
-        if (custom && custom.trim() && custom.trim().toUpperCase() !== 'SHIV') return custom.trim();
+        if (custom && custom.trim() && custom.trim().toUpperCase() !== 'SHIV' && custom.trim() !== 'Shiv Loves Gabriela') return custom.trim();
         const storedUser = localStorage.getItem('ultron_user');
         if (storedUser) {
           const u = JSON.parse(storedUser);
@@ -285,7 +285,7 @@ export default function BrainCanvas() {
           }
         }
       } catch (e) {}
-      return 'Shiv Loves Gabriela';
+      return 'Shiv Loves Gabriela (Chato)';
     }
 
     let currentName = getStoredUserName();
@@ -356,7 +356,7 @@ export default function BrainCanvas() {
 
       function drawCanvasText(n) {
         ctx.clearRect(0, 0, 4096, 256); // 100% transparent - NO box, NO capsule!
-        const disp = (n || 'Shiv Loves Gabriela').trim();
+        const disp = (n || 'Shiv Loves Gabriela (Chato)').trim();
 
         // Thin glowing pinkish neon line running through the circle
         ctx.strokeStyle = "rgba(255, 60, 160, 0.55)";
@@ -368,11 +368,11 @@ export default function BrainCanvas() {
         ctx.lineTo(4096, 128);
         ctx.stroke();
 
-        // Clear line behind text with balanced margins for "Shiv Loves Gabriela"
-        ctx.clearRect(2048 - 450, 50, 900, 156);
+        // Clear line behind text with balanced margins for "Shiv Loves Gabriela (Chato)"
+        ctx.clearRect(2048 - 560, 50, 1120, 156);
 
         // Semi-bold (weight 600) pinkish glowing text in natural unstretched font proportions
-        ctx.font = '600 44px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.font = '600 40px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
