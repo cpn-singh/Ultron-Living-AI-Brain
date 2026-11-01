@@ -50,15 +50,42 @@ export async function generateAIResponse(userPrompt, botId = 'orchestrator', con
   ];
   const hasCodeIntent = explicitCodeKeywords.some(k => lower.includes(k));
 
-  // 1. Conversational / Microphone Test Intent Check
-  if (GREETINGS_AND_MIC_TESTS.some(p => p.test(lower)) && !hasCodeIntent) {
-    if (lower.includes('audible') || lower.includes('hear me') || lower.includes('mic') || lower.includes('test')) {
-      return `🔊 **Yes! You are audible loud and clear.**\n\nMicrophone audio is working properly. I am **ULTRON** operating as **${selectedBot.name}**.\nHow can I assist you with code, system design, or automation today?`;
+  // 1. Conversational / Fast-Path Intent Checks (Zero Latency)
+  if (!hasCodeIntent) {
+    // 1a. Fast-Path Casual Humor & Jokes
+    if (['joke', 'funny', 'laugh', 'humor', 'make me smile', 'tell me a joke', 'chutkula', 'hasao', 'jokes'].some(k => lower.includes(k))) {
+      const jokes = [
+        `😄 **Here's a good one:**\n\nWhy do programmers prefer dark mode?\n*Because light attracts bugs!* 🐛`,
+        `😄 **Tech Humor:**\n\nThere are 10 types of people in the world:\n*Those who understand binary, and those who don't.* 💻`,
+        `😄 **Database Humor:**\n\nA SQL query walks into a bar, strolls up to two tables, and asks:\n*"Can I join you?"* 🍺`,
+        `😄 **Hardware Humor:**\n\nWhy was the computer cold?\n*It left its Windows open!* 🪟`,
+        `😄 **Physics Humor:**\n\nNever trust an atom...\n*They make up literally everything!* ⚛️`,
+        `😄 **AI Humor:**\n\nWhy did the neural network go to school?\n*To improve its hidden layers and stop overfitting!* 🤖`
+      ];
+      return jokes[Math.floor(Math.random() * jokes.length)];
     }
-    if (lower.includes('who are you') || lower.includes('what is your name')) {
-      return `⚡ **I am ULTRON** — your next-generation AI companion running on Python 3 & WebGL, active as **${selectedBot.name}** (${selectedBot.category}).\n\nI coordinate an 11-Bot Fleet and 5 Specialist Verification Agents (**Sophia**, **Nexus**, **Vigil**, **Kinetics**, **Aegis**). Ask me any coding, architecture, or automation question!`;
+
+    // 1b. Fast-Path Trivia & Fun Facts
+    if (['fact', 'trivia', 'tell me a fact', 'tell me something cool', 'interesting fact'].some(k => lower.includes(k))) {
+      const facts = [
+        `🌌 **Mind-Blowing Space Fact:**\n\nOne day on Venus is longer than one whole year on Venus! It takes 243 Earth days to rotate once on its axis, but only 225 Earth days to orbit the Sun.`,
+        `🧬 **Fascinating Biology Fact:**\n\nIf you unraveled all the DNA molecules in your body and stretched them end to end, they would stretch from Earth to Pluto and back multiple times!`,
+        `💻 **Computing History Fact:**\n\nThe Apollo 11 guidance computer that steered humans to the Moon in 1969 had just **4 KB of RAM** and operated at **0.043 MHz** — millions of times less powerful than a modern smartwatch!`,
+        `🌊 **Ocean Wonder:**\n\nHumans have explored less than 5% of Earth's oceans. We have more detailed topography maps of the surface of Mars than of our own ocean floor!`
+      ];
+      return facts[Math.floor(Math.random() * facts.length)];
     }
-    return `👋 **Hello!** I am online and listening as **${selectedBot.name}**.\n\nTry asking me a technical question, or say **"create file notes.txt"**, **"open youtube"**, or **"switch to swarm"**.`;
+
+    // 1c. Microphone test & Identity checks
+    if (GREETINGS_AND_MIC_TESTS.some(p => p.test(lower))) {
+      if (lower.includes('audible') || lower.includes('hear me') || lower.includes('mic') || lower.includes('test')) {
+        return `🔊 **Yes! You are audible loud and clear.**\n\nMicrophone audio is working properly. I am **ULTRON** operating as **${selectedBot.name}**.\nHow can I assist you with code, system design, or automation today?`;
+      }
+      if (lower.includes('who are you') || lower.includes('what is your name')) {
+        return `⚡ **I am ULTRON** — your next-generation AI companion running on Python 3 & WebGL, active as **${selectedBot.name}** (${selectedBot.category}).\n\nI coordinate an 11-Bot Fleet and 5 Specialist Verification Agents (**Sophia**, **Nexus**, **Vigil**, **Kinetics**, **Aegis**). Ask me any coding, architecture, or automation question!`;
+      }
+      return `👋 **Hello!** I am online and listening as **${selectedBot.name}**.\n\nTry asking me a technical question, or say **"tell me a joke"**, **"create file notes.txt"**, **"open youtube"**, or **"switch to swarm"**.`;
+    }
   }
 
   // 2. Try offline local command parser (file system, tab navigation, app launch)
@@ -178,9 +205,13 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
           }
           return triggerColabCopyAndRedirect(answer.trim());
         }
+      } else if (response.status === 400 || response.status === 401 || response.status === 403) {
+        // Invalid or expired Gemini Key - stop looping over remaining models with this key
+        break;
       }
     } catch (err) {
       console.warn(`[AI Service] Cloud Gemini API (${modelName}) unavailable:`, err.message);
+      break;
     }
   }
 
@@ -215,9 +246,13 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
           const data = await response.json();
           const answer = data.choices?.[0]?.message?.content;
           if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+        } else if (response.status === 401 || response.status === 403) {
+          // Bad NVIDIA Key - avoid hammering remaining models
+          break;
         }
       } catch (err) {
         console.warn(`[AI Service] Cloud NVIDIA NIM (${modelId} on ${endpoint}) unavailable:`, err.message);
+        break;
       }
     }
   }

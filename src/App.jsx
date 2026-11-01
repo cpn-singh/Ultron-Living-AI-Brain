@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import BrainCanvas from './components/BrainCanvas';
 import ChatDrawer from './components/ChatDrawer';
@@ -31,19 +31,23 @@ export default function App() {
     return () => window.removeEventListener('toggle-fleet-sidebar', handleToggle);
   }, []);
 
-  const handleTabSwitch = (tab) => {
+  const handleTabSwitch = useCallback((tab) => {
     if (tab !== 'chat') {
       setSpeechTriggerText(null);
     }
     setActiveTab(tab);
-  };
+  }, []);
 
-  const handleSpeechResult = (text) => {
+  const handleSpeechResult = useCallback((text) => {
     if (text && text.trim()) {
       setSpeechTriggerText({ text: text.trim(), ts: Date.now() });
       setActiveTab('chat');
     }
-  };
+  }, []);
+
+  const handleClearSpeechTrigger = useCallback(() => {
+    setSpeechTriggerText(null);
+  }, []);
 
   const handleZoomIn = () => {
     window.dispatchEvent(new CustomEvent('brain-zoom-in'));
@@ -203,7 +207,7 @@ export default function App() {
           setActiveAgent={setActiveAgent}
           onSwitchTab={handleTabSwitch} 
           speechTriggerText={speechTriggerText} 
-          onClearSpeechTrigger={() => setSpeechTriggerText(null)}
+          onClearSpeechTrigger={handleClearSpeechTrigger}
         />
       )}
 

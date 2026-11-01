@@ -8,6 +8,9 @@ import {
 import { stopSpeech, isUltronSpeaking } from '../services/voiceTtsService';
 
 export default function VoiceOverlay({ activeTab, onSpeechResult }) {
+  const onSpeechResultRef = useRef(onSpeechResult);
+  onSpeechResultRef.current = onSpeechResult;
+
   const [voiceState, setVoiceState] = useState('idle'); // 'idle' | 'listening' | 'processing'
   const [partialText, setPartialText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -61,7 +64,7 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       },
       onCommand: (command) => {
         if (command && command.trim()) {
-          if (onSpeechResult) onSpeechResult(command.trim());
+          if (onSpeechResultRef.current) onSpeechResultRef.current(command.trim());
         }
       },
       onPermissionStatus: (granted) => {
@@ -73,13 +76,15 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
     });
 
     // Start continuous listener immediately on mount
-    if (wakeWordEnabled) {
+    const shouldStart = localStorage.getItem('ultron_wake_word') !== 'false';
+    if (shouldStart) {
       ultronVoiceEngine.activate().catch(() => {});
     }
 
     // Auto-prime listener on user interaction
     const handleDocumentInteraction = () => {
-      if (wakeWordEnabled && !ultronVoiceEngine.isListeningContinuous()) {
+      const isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
+      if (isEnabled && !ultronVoiceEngine.isListeningContinuous()) {
         ultronVoiceEngine.activate().catch(() => {});
       }
     };
@@ -97,9 +102,10 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       }
     };
     const handleLangChangeEvent = () => {
-      if (wakeWordEnabled) {
+      const isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
+      if (isEnabled) {
         ultronVoiceEngine.stop();
-        setTimeout(() => ultronVoiceEngine.start().catch(() => {}), 200);
+        setTimeout(() => ultronVoiceEngine.start().catch(() => {}), 300);
       }
     };
     window.addEventListener('ultron-wake-word-toggle', handleToggleEvent);
@@ -110,9 +116,8 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       window.removeEventListener('keydown', handleDocumentInteraction);
       window.removeEventListener('ultron-wake-word-toggle', handleToggleEvent);
       window.removeEventListener('ultron-speech-lang-change', handleLangChangeEvent);
-      ultronVoiceEngine.stop();
     };
-  }, [onSpeechResult, wakeWordEnabled]);
+  }, []);
 
   // Keyboard shortcut listener for Cmd+Shift+Space / Ctrl+Shift+Space
   useEffect(() => {

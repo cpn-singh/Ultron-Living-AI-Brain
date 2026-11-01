@@ -23,7 +23,14 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       const saved = localStorage.getItem('ultron_chat_history');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filter out legacy error artifacts from previous versions
+          const cleaned = parsed.filter(m => 
+            !m.text?.includes('Speech-to-text service is unavailable') &&
+            !m.text?.includes('offline voice model')
+          );
+          if (cleaned.length > 0) return cleaned;
+        }
       }
     } catch (e) {}
     return [
@@ -146,11 +153,8 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   useEffect(() => {
     return () => {
       stopSpeech();
-      if (onClearSpeechTrigger) {
-        onClearSpeechTrigger();
-      }
     };
-  }, [onClearSpeechTrigger]);
+  }, []);
 
   const handleVoice = useCallback(async () => {
     if (micState !== MIC_STATES.idle) {

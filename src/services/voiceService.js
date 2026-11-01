@@ -307,6 +307,11 @@ class UltronContinuousVoiceEngine {
     if (this.recognition || this.isStarting) return;
     this.isStarting = true;
 
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+
     try {
       const recognition = new SpeechRecognition();
       this.recognition = recognition;
@@ -421,6 +426,11 @@ class UltronContinuousVoiceEngine {
 
       recognition.onerror = (event) => {
         this.isStarting = false;
+        // Harmless or expected events
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+          return;
+        }
+
         console.warn('[UltronVoice] Recognition status:', event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           console.warn('[UltronVoice] Microphone permission denied');
@@ -431,15 +441,7 @@ class UltronContinuousVoiceEngine {
           return;
         }
 
-        // Auto-recover cleanly from any transient error (no-speech, network, audio-capture, aborted)
-        if (this.isEnabled && this.isActive) {
-          if (this.restartTimer) clearTimeout(this.restartTimer);
-          this.restartTimer = setTimeout(() => {
-            if (this.isEnabled && this.isActive) {
-              this.start();
-            }
-          }, 350);
-        }
+        // Fatal errors will trigger onend naturally; do not restart here to avoid duplicate instances
       };
 
       recognition.onend = () => {
@@ -448,14 +450,14 @@ class UltronContinuousVoiceEngine {
         this.processedIndex = 0;
         this.latestResultsLength = 0;
 
-        // Auto-restart continuous session so listening stays alive 24/7
+        // Auto-restart continuous session with a safe debounce so listening stays alive 24/7
         if (this.isEnabled && this.isActive) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
-            if (this.isEnabled && this.isActive) {
+            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting) {
               this.start();
             }
-          }, 200);
+          }, 600);
         } else {
           this.setState('idle');
           if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
@@ -514,13 +516,13 @@ class UltronContinuousVoiceEngine {
       this.setState('processing');
       if (this.callbacks.onPartial) this.callbacks.onPartial(cleanCommand);
 
-      if (this.callbacks.onCommand) {
-        this.callbacks.onCommand(cleanCommand);
-      }
-
+      // If manual trigger was waiting (e.g. ChatDrawer mic button), resolve it directly
       if (this.manualResolve) {
         this.manualResolve({ transcript: cleanCommand, error: null });
         this.manualResolve = null;
+      } else if (this.callbacks.onCommand) {
+        // Continuous wake word trigger -> send to main app orchestrator
+        this.callbacks.onCommand(cleanCommand);
       }
     } else {
       if (this.manualResolve) {
@@ -591,13 +593,29 @@ class UltronContinuousVoiceEngine {
   stop() {
     this.isEnabled = false;
     this.isActive = false;
-    if (this.restartTimer) clearTimeout(this.restartTimer);
-    if (this.silenceTimer) clearTimeout(this.silenceTimer);
-    if (this.hardSafetyTimer) clearTimeout(this.hardSafetyTimer);
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    if (this.hardSafetyTimer) {
+      clearTimeout(this.hardSafetyTimer);
+      this.hardSafetyTimer = null;
+    }
     if (this.recognition) {
-      try { this.recognition.abort(); } catch (e) {}
+      try {
+        this.recognition.onstart = null;
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
+        this.recognition.abort();
+      } catch (e) {}
       this.recognition = null;
     }
+    this.isStarting = false;
     this.setState('idle');
     if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
   }
