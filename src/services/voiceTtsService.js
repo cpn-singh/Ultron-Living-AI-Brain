@@ -344,12 +344,18 @@ export function speakText(text, options = {}) {
       };
 
       utterance.onerror = (e) => {
-        console.warn('[VoiceTTS] Utterance error, falling back:', e);
         activeUtterances.delete(utterance);
         remainingSentences--;
         if (remainingSentences <= 0) {
           cleanupSpeaking();
         }
+
+        // Ignore natural user voice barge-in interruptions or window close
+        if (e.error === 'interrupted' || e.error === 'canceled') {
+          return;
+        }
+
+        console.warn('[VoiceTTS] Utterance error, falling back:', e);
         if (index === 0) {
           fallbackPythonTts(cleanText, voiceKey, speed);
         }
