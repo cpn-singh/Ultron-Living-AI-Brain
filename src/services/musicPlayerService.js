@@ -77,8 +77,24 @@ class MusicPlayerService {
 
     this.audioElement.addEventListener('timeupdate', () => {
       this.state.currentTime = this.audioElement.currentTime || 0;
-      this.state.duration = this.audioElement.duration || 0;
+      if (this.audioElement.duration && !isNaN(this.audioElement.duration) && isFinite(this.audioElement.duration)) {
+        this.state.duration = this.audioElement.duration;
+      }
       this.notify();
+    });
+
+    this.audioElement.addEventListener('loadedmetadata', () => {
+      if (this.audioElement.duration && !isNaN(this.audioElement.duration) && isFinite(this.audioElement.duration)) {
+        this.state.duration = this.audioElement.duration;
+        this.notify();
+      }
+    });
+
+    this.audioElement.addEventListener('durationchange', () => {
+      if (this.audioElement.duration && !isNaN(this.audioElement.duration) && isFinite(this.audioElement.duration)) {
+        this.state.duration = this.audioElement.duration;
+        this.notify();
+      }
     });
 
     this.audioElement.addEventListener('ended', () => {
@@ -196,6 +212,7 @@ class MusicPlayerService {
       this.state.videoId = null;
       this.state.alternateVideoIds = [];
       this.state.audioUrl = null;
+      this.state.currentTime = 0;
       this.state.musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`;
       this.state.currentTrack = {
         id: `ytm-${Date.now()}`,
@@ -223,6 +240,12 @@ class MusicPlayerService {
             this.state.videoId = data.videoId || null;
             this.state.alternateVideoIds = data.alternateIds || [];
             this.state.audioUrl = data.audioUrl || null;
+            if (data.duration) {
+              const parsedDur = parseFloat(data.duration);
+              if (!isNaN(parsedDur) && parsedDur > 0) {
+                this.state.duration = parsedDur;
+              }
+            }
             this.state.musicUrl = data.musicUrl || (data.videoId ? `https://music.youtube.com/watch?v=${data.videoId}` : `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`);
             this.state.currentTrack = {
               id: `song-${Date.now()}`,
@@ -390,11 +413,48 @@ class MusicPlayerService {
   }
 
   seek(seconds) {
-    if (this.state.sourceType === 'audio' && this.audioElement) {
-      this.audioElement.currentTime = seconds;
-      this.state.currentTime = seconds;
-      this.notify();
+    const target = Math.max(0, Number(seconds) || 0);
+    this.state.currentTime = target;
+
+    // 1. Direct HTML5 audio element seeking
+    if (this.audioElement) {
+      try {
+        if (this.audioElement.readyState >= 1) {
+          this.audioElement.currentTime = target;
+        } else {
+          const onCanPlay = () => {
+            this.audioElement.currentTime = target;
+            this.audioElement.removeEventListener('canplay', onCanPlay);
+          };
+          this.audioElement.addEventListener('canplay', onCanPlay);
+        }
+      } catch (err) {
+        console.warn('[MusicPlayer] Audio seek error:', err);
+      }
     }
+
+    // 2. YouTube iframe seeking (for video embed or background audio stream)
+    if (typeof window !== 'undefined') {
+      try {
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((iframe) => {
+          if (iframe.src && (iframe.src.includes('youtube.com') || iframe.src.includes('youtube-nocookie.com'))) {
+            iframe.contentWindow?.postMessage(
+              JSON.stringify({
+                event: 'command',
+                func: 'seekTo',
+                args: [target, true]
+              }),
+              '*'
+            );
+          }
+        });
+      } catch (ytErr) {
+        console.warn('[MusicPlayer] YouTube iframe seek notice:', ytErr);
+      }
+    }
+
+    this.notify();
   }
 
   toggleMinimize() {

@@ -6,6 +6,88 @@ import {
 } from 'lucide-react';
 import { musicPlayer } from '../services/musicPlayerService';
 
+const formatTime = (secs) => {
+  if (!secs || isNaN(secs)) return '0:00';
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+};
+
+function SeekSlider({ currentTime, duration, onSeek, accent = 'rose' }) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [localVal, setLocalVal] = useState(currentTime || 0);
+
+  useEffect(() => {
+    if (!isDragging) {
+      setLocalVal(currentTime || 0);
+    }
+  }, [currentTime, isDragging]);
+
+  const maxVal = duration && !isNaN(duration) && duration > 0 ? duration : 100;
+  const currentVal = isDragging ? localVal : (currentTime || 0);
+  const percent = Math.min(100, Math.max(0, (currentVal / maxVal) * 100));
+
+  const handleSeekChange = (e) => {
+    const val = parseFloat(e.target.value);
+    setLocalVal(val);
+  };
+
+  const handleSeekCommit = (e) => {
+    const val = parseFloat(e.target.value);
+    setIsDragging(false);
+    onSeek(val);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 px-1 select-none">
+      <div className="relative flex items-center h-6 cursor-pointer touch-none">
+        {/* Progress Background Track */}
+        <div className="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60 shadow-inner">
+          <div
+            className={`h-full ${
+              accent === 'rose'
+                ? 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-400'
+                : 'bg-gradient-to-r from-cyan-500 via-sky-400 to-teal-400'
+            } rounded-full transition-all duration-75`}
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+
+        {/* Transparent native range input for frictionless touch & mouse dragging */}
+        <input
+          type="range"
+          min="0"
+          max={maxVal}
+          step="0.5"
+          value={currentVal}
+          onMouseDown={() => setIsDragging(true)}
+          onTouchStart={() => setIsDragging(true)}
+          onChange={handleSeekChange}
+          onMouseUp={handleSeekCommit}
+          onTouchEnd={handleSeekCommit}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          title="Seek track position"
+        />
+
+        {/* High-visibility glowing scrubber thumb */}
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none w-3.5 h-3.5 rounded-full ${
+            accent === 'rose'
+              ? 'bg-rose-400 shadow-[0_0_10px_rgba(244,63,94,1)]'
+              : 'bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,1)]'
+          } border-2 border-white`}
+          style={{ left: `${percent}%` }}
+        />
+      </div>
+
+      <div className="flex justify-between text-[10px] font-mono text-white/50 px-0.5">
+        <span>{formatTime(currentVal)}</span>
+        <span>{formatTime(maxVal)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MusicPlayer() {
   const [playerState, setPlayerState] = useState(musicPlayer.state);
 
@@ -37,13 +119,6 @@ export default function MusicPlayer() {
   }, []);
 
   if (!playerState.isOpen) return null;
-
-  const formatTime = (secs) => {
-    if (!secs || isNaN(secs)) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
 
   // Minimized Compact Floating Pill
   if (playerState.isMinimized) {
@@ -239,23 +314,13 @@ export default function MusicPlayer() {
                     </div>
                   </div>
 
-                  {/* Progress Slider (when direct audio is playing) */}
-                  {playerState.audioUrl && (
-                    <div className="flex flex-col gap-1 px-1">
-                      <input
-                        type="range"
-                        min="0"
-                        max={playerState.duration || 100}
-                        value={playerState.currentTime || 0}
-                        onChange={(e) => musicPlayer.seek(Number(e.target.value))}
-                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                      />
-                      <div className="flex justify-between text-[10px] font-mono text-white/40">
-                        <span>{formatTime(playerState.currentTime)}</span>
-                        <span>{formatTime(playerState.duration)}</span>
-                      </div>
-                    </div>
-                  )}
+                  {/* High-Precision Interactive Progress Seekbar */}
+                  <SeekSlider
+                    currentTime={playerState.currentTime}
+                    duration={playerState.duration}
+                    onSeek={(secs) => musicPlayer.seek(secs)}
+                    accent="rose"
+                  />
 
                   <div className="flex items-center justify-between px-1 text-[11px] text-white/70">
                     <span className="truncate max-w-[200px] text-white/50">
@@ -388,21 +453,13 @@ export default function MusicPlayer() {
             </div>
           </div>
 
-          {/* Progress Slider */}
-          <div className="flex flex-col gap-1 px-1">
-            <input
-              type="range"
-              min="0"
-              max={playerState.duration || 100}
-              value={playerState.currentTime || 0}
-              onChange={(e) => musicPlayer.seek(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-white/40">
-              <span>{formatTime(playerState.currentTime)}</span>
-              <span>{formatTime(playerState.duration)}</span>
-            </div>
-          </div>
+          {/* High-Precision Interactive Progress Seekbar */}
+          <SeekSlider
+            currentTime={playerState.currentTime}
+            duration={playerState.duration}
+            onSeek={(secs) => musicPlayer.seek(secs)}
+            accent="cyan"
+          />
         </div>
       )}
 
