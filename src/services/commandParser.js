@@ -192,15 +192,16 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
           `\`\`\`youtube\n${cleanMedia}\n\`\`\`\n\n` +
           `[▶️ Open "${cleanMedia}" on YouTube](${ytUrl})`;
       } else {
-        // Music request: ONLY play in ULTRON Music Player, NOT in chat screen!
+        // Music request: ONLY play in ULTRON YouTube Music Player!
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('ultron-pause-chat-video'));
         }
         musicPlayer.playSong(cleanMedia, { isVideo: false });
 
-        return `### 🎵 ULTRON Music Player\n` +
+        return `### 🎵 ULTRON YouTube Music\n` +
           `- **Track**: "${cleanMedia}"\n` +
-          `- **Status**: Playing in ULTRON Music Player.`;
+          `- **Source**: YouTube Music\n` +
+          `- **Status**: Streaming in ULTRON YouTube Music Player.`;
       }
     } else {
       // If stripped query was empty (e.g. user said "play a song"), play generic stream directly!

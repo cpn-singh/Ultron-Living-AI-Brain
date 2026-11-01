@@ -136,9 +136,16 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
   const handleActivateWakeWord = async (e) => {
     if (e) e.stopPropagation();
     try {
-      await ultronVoiceEngine.activate();
-      setIsEngineActive(true);
-      setHasMicPermission(true);
+      unlockAudioContext();
+      const granted = await requestMicrophonePermission();
+      if (granted) {
+        setHasMicPermission(true);
+        await ultronVoiceEngine.activate();
+        setIsEngineActive(true);
+      } else {
+        setErrorMsg('Microphone access blocked. Tap the tune icon near URL in Chrome to allow microphone.');
+        setTimeout(() => setErrorMsg(''), 6000);
+      }
     } catch (err) {
       setErrorMsg('Could not start microphone listener. Check browser permissions.');
       setTimeout(() => setErrorMsg(''), 4000);

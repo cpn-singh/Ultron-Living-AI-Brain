@@ -269,9 +269,8 @@ function YouTubeEmbedBlock({ query }) {
     } catch (e) {}
   };
 
-  const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
   const embedUrl = videoId
-    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0`
     : null;
 
   return (

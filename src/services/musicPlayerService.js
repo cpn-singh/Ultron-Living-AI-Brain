@@ -52,6 +52,7 @@ class MusicPlayerService {
       isMinimized: false,
       isLoading: false,
       isVideo: false,
+      displayMode: 'audio', // 'audio' | 'video'
       currentTrack: this.playlist[0],
       sourceType: 'audio', // 'audio' | 'youtube'
       ytQuery: null,
@@ -105,7 +106,14 @@ class MusicPlayerService {
     });
 
     this.audioElement.addEventListener('error', (e) => {
-      console.warn('[MusicPlayer] Audio stream loading warning, readying next fallback track.');
+      console.warn('[MusicPlayer] Direct audio stream error, activating background stream fallback:', e);
+      if (this.state.audioUrl) {
+        this.state.audioUrl = null;
+        if (!this.state.ytEmbedUrl && this.state.videoId) {
+          this.state.ytEmbedUrl = `https://www.youtube.com/embed/${this.state.videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
+        }
+        this.notify();
+      }
     });
 
     if (typeof window !== 'undefined') {
@@ -156,6 +164,7 @@ class MusicPlayerService {
       // Play instant audio stream
       this.state.sourceType = 'audio';
       this.state.isVideo = false;
+      this.state.displayMode = 'audio';
       this.state.ytQuery = null;
       this.state.ytEmbedUrl = null;
       this.state.isOpen = true;
@@ -180,15 +189,19 @@ class MusicPlayerService {
 
       this.state.sourceType = 'youtube';
       this.state.isVideo = isVideo;
+      this.state.displayMode = isVideo ? 'video' : 'audio';
       this.state.ytQuery = clean;
       this.state.isLoading = true;
       this.state.ytEmbedUrl = null;
       this.state.videoId = null;
+      this.state.alternateVideoIds = [];
+      this.state.audioUrl = null;
+      this.state.musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`;
       this.state.currentTrack = {
-        id: `yt-${Date.now()}`,
+        id: `ytm-${Date.now()}`,
         title: clean,
-        artist: isVideo ? 'YouTube Video Stream' : 'YouTube Audio Stream',
-        genre: isVideo ? 'Requested Video' : 'Requested Music',
+        artist: isVideo ? 'YouTube Video Stream' : 'YouTube Music',
+        genre: isVideo ? 'Music Video' : 'Official YouTube Music',
         cover: null
       };
       this.state.isOpen = true;
@@ -202,14 +215,40 @@ class MusicPlayerService {
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: clean })
+          body: JSON.stringify({ query: clean, type: isVideo ? 'video' : 'music' })
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && data.videoId) {
-            this.state.videoId = data.videoId;
-            const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
-            this.state.ytEmbedUrl = `https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`;
+          if (data.success) {
+            this.state.videoId = data.videoId || null;
+            this.state.alternateVideoIds = data.alternateIds || [];
+            this.state.audioUrl = data.audioUrl || null;
+            this.state.musicUrl = data.musicUrl || (data.videoId ? `https://music.youtube.com/watch?v=${data.videoId}` : `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`);
+            this.state.currentTrack = {
+              id: `song-${Date.now()}`,
+              title: data.title || clean,
+              artist: data.artist || (isVideo ? 'YouTube Video Stream' : 'YouTube Music'),
+              genre: data.duration ? `Full Track (${data.duration})` : (isVideo ? 'Music Video' : 'Official YouTube Music'),
+              cover: data.cover || null
+            };
+
+            // Clean embed URL without IP origin parameter (prevents YouTube "Video is unavailable" error on local IPs)
+            if (data.videoId) {
+              this.state.ytEmbedUrl = `https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
+            }
+
+            // Direct 100% full-length audio stream in Audio Mode (320kbps CDN stream, no 15s cutoff, no YouTube Error 150)
+            if (!isVideo && data.audioUrl && this.audioElement) {
+              try {
+                this.audioElement.src = data.audioUrl;
+                this.audioElement.volume = this.state.volume;
+                await this.audioElement.play();
+                this.state.isPlaying = true;
+              } catch (playErr) {
+                console.warn('[MusicPlayer] Direct audio stream autoplay notice:', playErr);
+              }
+            }
+
             this.state.isLoading = false;
             this.notify();
             return this.state.currentTrack;
@@ -219,10 +258,10 @@ class MusicPlayerService {
         console.warn('[MusicPlayer] Local yt-search failed, using direct search stream:', err);
       }
 
-      // 100% Full-Length Fallback: Direct YouTube Stream (NEVER 30-second iTunes snippets!)
-      const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
+      // 100% Full-Length Fallback: Direct YouTube Music Search Stream
       this.state.sourceType = 'youtube';
-      this.state.ytEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(clean)}&autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`;
+      this.state.musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`;
+      this.state.ytEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(clean + ' audio')}&autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
       this.state.isLoading = false;
       this.notify();
       return this.state.currentTrack;
@@ -234,7 +273,7 @@ class MusicPlayerService {
 
   pause() {
     this.isUserPaused = true;
-    if (this.state.sourceType === 'audio' && this.audioElement) {
+    if (this.audioElement) {
       this.audioElement.pause();
     }
     this.state.isPlaying = false;
@@ -249,7 +288,7 @@ class MusicPlayerService {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ultron-media-playing'));
     }
-    if (this.state.sourceType === 'audio' && this.audioElement) {
+    if (this.state.displayMode === 'audio' && this.state.audioUrl && this.audioElement) {
       try {
         await this.audioElement.play();
         this.state.isPlaying = true;
@@ -257,6 +296,53 @@ class MusicPlayerService {
     } else {
       this.state.isPlaying = true;
     }
+    this.notify();
+  }
+
+  switchToAudioMode() {
+    this.state.displayMode = 'audio';
+    if (this.state.audioUrl && this.audioElement) {
+      this.audioElement.play().catch(() => {});
+    }
+    this.notify();
+  }
+
+  switchToVideoMode() {
+    this.state.displayMode = 'video';
+    if (this.audioElement) {
+      this.audioElement.pause();
+    }
+    this.notify();
+  }
+
+  toggleDisplayMode() {
+    const nextMode = this.state.displayMode === 'video' ? 'audio' : 'video';
+    this.state.displayMode = nextMode;
+    if (nextMode === 'video') {
+      if (this.audioElement) this.audioElement.pause();
+    } else {
+      if (this.state.audioUrl && this.audioElement) {
+        this.audioElement.play().catch(() => {});
+      }
+    }
+    this.notify();
+  }
+
+  tryNextVideo() {
+    if (!this.state.alternateVideoIds || this.state.alternateVideoIds.length === 0) {
+      // If alternate video embeds are exhausted, ensure audio mode is active so user hears the stream
+      this.state.displayMode = 'audio';
+      if (this.state.audioUrl && this.audioElement) {
+        this.audioElement.play().catch(() => {});
+      }
+      this.notify();
+      return;
+    }
+    const nextId = this.state.alternateVideoIds.shift();
+    this.state.videoId = nextId;
+    this.state.musicUrl = `https://music.youtube.com/watch?v=${nextId}`;
+    this.state.ytEmbedUrl = `https://www.youtube.com/embed/${nextId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
+    this.state.isPlaying = true;
     this.notify();
   }
 

@@ -1609,6 +1609,9 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
         elif parsed.path == '/api/memory':
             memories = load_memories()
             self._send_json(200, {"success": True, "memories": memories})
+        elif parsed.path == '/api/yt-search':
+            self.do_POST()
+            return
         else:
             self._send_json(404, {"error": "Not Found"})
 
@@ -1618,8 +1621,11 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
 
         try:
             body = json.loads(post_data.decode('utf-8')) if post_data else {}
-        except Exception:
+        except Exception as err:
+            print(f"[Python Backend] JSON decode error: {err}, raw={post_data!r}")
             body = {}
+
+        print(f"[Python Backend] POST {parsed.path} - body: {body}")
 
         if parsed.path == '/api/stt':
             audio_b64 = body.get('audio', '')
@@ -1895,20 +1901,67 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                     })
 
         elif parsed.path == '/api/yt-search':
-            query = body.get('query', '').strip()
+            qs = parse_qs(parsed.query)
+            query = body.get('query') or body.get('q') or (qs.get('query', [''])[0]) or (qs.get('q', [''])[0]) or ''
+            query = str(query).strip()
+            search_type = body.get('type') or qs.get('type', ['music'])[0] or 'music'
             if not query:
                 self._send_json(400, {"success": False, "message": "No query provided"})
             else:
                 try:
-                    import urllib.request, urllib.parse, re
-                    encoded_q = urllib.parse.quote_plus(query)
-                    yt_url = f"https://www.youtube.com/results?search_query={encoded_q}"
+                    clean_q = query.strip()
+                    encoded_q = urllib.parse.quote_plus(clean_q)
+                    context = ssl._create_unverified_context()
+
+                    full_audio_url = None
+                    song_title = clean_q
+                    artist_name = "Ultron Music"
+                    duration_str = None
+                    cover_image = None
+
+                    # 1. Fetch 100% Full-Length 320kbps Audio Stream from Native JioSaavn API (No 15s/30s cutoffs!)
+                    try:
+                        jio_headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Accept": "application/json, text/plain, */*"
+                        }
+                        search_url = f"https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&p=1&n=5&q={encoded_q}"
+                        req = urllib.request.Request(search_url, headers=jio_headers)
+                        with urllib.request.urlopen(req, context=context, timeout=6) as resp:
+                            s_data = json.loads(resp.read().decode('utf-8'))
+                        
+                        results = s_data.get('results', [])
+                        if results:
+                            top_song = results[0]
+                            song_title = top_song.get('song') or top_song.get('title') or clean_q
+                            artist_name = top_song.get('primary_artists') or top_song.get('singers') or "Featured Artist"
+                            duration_str = str(top_song.get('duration') or '')
+                            raw_img = top_song.get('image', '')
+                            cover_image = raw_img.replace('-150x150.', '-500x500.') if raw_img else None
+                            enc_media_url = top_song.get('encrypted_media_url')
+
+                            if enc_media_url:
+                                auth_call = f"https://www.jiosaavn.com/api.php?__call=song.generateAuthToken&_format=json&bitrate=320&url={urllib.parse.quote(enc_media_url)}"
+                                a_req = urllib.request.Request(auth_call, headers=jio_headers)
+                                with urllib.request.urlopen(a_req, context=context, timeout=6) as a_resp:
+                                    a_data = json.loads(a_resp.read().decode('utf-8'))
+                                    auth_url = a_data.get('auth_url')
+                                    if auth_url:
+                                        m = re.search(r'saavncdn\.com/(\d+)/([a-zA-Z0-9_-]+)_320\.mp4', auth_url)
+                                        full_audio_url = f"https://aac.saavncdn.com/{m.group(1)}/{m.group(2)}_320.mp4" if m else auth_url
+                                        print(f"[MusicEngine] Resolved verified 320kbps audio: {song_title} -> {full_audio_url}")
+                    except Exception as s_err:
+                        print(f"[MusicEngine] Full audio resolution notice: {s_err}")
+
+                    # 2. Fetch YouTube Video IDs & YouTube Music link for Video Mode and Deep Links
+                    search_term = f"{clean_q} official audio lyrics" if search_type == 'music' else clean_q
+                    yt_encoded = urllib.parse.quote_plus(search_term)
+                    yt_url = f"https://www.youtube.com/results?search_query={yt_encoded}"
                     req = urllib.request.Request(yt_url, headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         "Accept-Language": "en-US,en;q=0.9"
                     })
-                    context = ssl._create_unverified_context()
-                    with urllib.request.urlopen(req, context=context, timeout=10) as resp:
+                    with urllib.request.urlopen(req, context=context, timeout=6) as resp:
                         raw_html = resp.read().decode('utf-8', errors='ignore')
 
                     ids = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', raw_html)
@@ -1919,17 +1972,25 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
 
                     unique_ids = list(dict.fromkeys(ids))
                     top_id = unique_ids[0] if unique_ids else None
+                    alternate_ids = unique_ids[1:8] if len(unique_ids) > 1 else []
 
-                    if top_id:
+                    if top_id or full_audio_url:
                         self._send_json(200, {
                             "success": True,
                             "query": query,
+                            "title": song_title,
+                            "artist": artist_name,
+                            "duration": duration_str,
+                            "cover": cover_image,
+                            "audioUrl": full_audio_url,
                             "videoId": top_id,
-                            "embedUrl": f"https://www.youtube.com/embed/{top_id}?autoplay=1&enablejsapi=1&playsinline=1&rel=0",
-                            "watchUrl": f"https://www.youtube.com/watch?v={top_id}"
+                            "alternateIds": alternate_ids,
+                            "embedUrl": f"https://www.youtube.com/embed/{top_id}?autoplay=1&enablejsapi=1&playsinline=1&rel=0" if top_id else None,
+                            "watchUrl": f"https://www.youtube.com/watch?v={top_id}" if top_id else None,
+                            "musicUrl": f"https://music.youtube.com/watch?v={top_id}" if top_id else f"https://music.youtube.com/search?q={encoded_q}"
                         })
                     else:
-                        self._send_json(404, {"success": False, "message": "No video found"})
+                        self._send_json(404, {"success": False, "message": "No media found"})
                 except Exception as e:
                     self._send_json(500, {"success": False, "message": str(e)})
 

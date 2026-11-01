@@ -97,12 +97,26 @@ export async function isVoiceAvailable() {
 export async function requestMicrophonePermission() {
   if (typeof window === 'undefined') return false;
 
+  // 1. Check if permission is already granted via Permissions API
   if (navigator.permissions && navigator.permissions.query) {
     try {
       const perm = await navigator.permissions.query({ name: 'microphone' });
       if (perm.state === 'granted') return true;
-      if (perm.state === 'denied') return false;
     } catch (e) {}
+  }
+
+  // 2. Explicitly trigger browser microphone permission dialog via getUserMedia,
+  // then IMMEDIATELY stop and release all hardware tracks so Google Speech Services can record freely.
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // CRITICAL: Immediately stop all tracks to release hardware recording channel
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (err) {
+      console.warn('[UltronVoice] getUserMedia prompt declined or failed:', err);
+      return false;
+    }
   }
 
   return isWebSpeechAvailable();
