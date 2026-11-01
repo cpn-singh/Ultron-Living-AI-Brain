@@ -59,10 +59,11 @@ const PATTERNS = {
     /^(?:prev|previous)\s+(?:song|track|music)$/i
   ],
 
-  // Specific Media / YouTube playback: "play Kas ka song", "play despacito", "play Honey Singh"
+  // Specific Media / YouTube playback: "play Kas ka song", "play despacito", "play Honey Singh", "haryanvi mashup 5"
   PLAY_MEDIA: [
     /(?:play|baja|bajao|suna|sunao)\s+(?:a\s+)?(?:song|video|music|track|gaana|gana)?\s*(?:called\s+|named\s+)?(.+)/i,
-    /(?:play|baja|bajao)\s+(.+)/i
+    /(?:play|baja|bajao)\s+(.+)/i,
+    /(.+)\s+(?:song|songs|video|videos|music|track|mashup|remix|beats?|geet|gaana|gana)$/i
   ],
 
   // App launch: "open chrome", "launch notepad", "start software spotify"
@@ -161,7 +162,13 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
   }
 
   // ── SPECIFIC PLAY MEDIA / YOUTUBE STREAM ──
-  const playTarget = extract(text, PATTERNS.PLAY_MEDIA);
+  let playTarget = extract(text, PATTERNS.PLAY_MEDIA);
+  if (!playTarget && !testAny(text, PATTERNS.LAUNCH_APP) && !testAny(text, PATTERNS.CREATE_FILE) && !testAny(text, PATTERNS.CREATE_FOLDER)) {
+    if (/\b(mashup|remix|beats?|song|gaana|gana)\b/i.test(text)) {
+      playTarget = text;
+    }
+  }
+
   if (playTarget) {
     // Check if user specifically requested VIDEO
     const isVideoRequested = /\b(video|videos|visual|watch|dekhna|dekho|video song|music video|clip)\b/i.test(text);
@@ -175,8 +182,9 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
       const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanMedia)}`;
 
       if (isVideoRequested) {
-        // Explicit video request: render embedded video player in chat + launch stream
-        musicPlayer.playSong(cleanMedia, { isVideo: true });
+        // Explicit video request: render embedded video player in chat ONLY; pause and close floating music player so they NEVER clash!
+        musicPlayer.pause();
+        musicPlayer.close();
 
         return `### 🎬 Playing Video\n` +
           `- **Query**: "${cleanMedia}"\n` +
@@ -185,14 +193,20 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
           `[▶️ Open "${cleanMedia}" on YouTube](${ytUrl})`;
       } else {
         // Music request: ONLY play in ULTRON Music Player, NOT in chat screen!
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ultron-pause-chat-video'));
+        }
         musicPlayer.playSong(cleanMedia, { isVideo: false });
 
         return `### 🎵 ULTRON Music Player\n` +
-          `- **Playing**: "${cleanMedia}"\n` +
-          `- **Output**: Playing directly in the ULTRON Music Player.`;
+          `- **Track**: "${cleanMedia}"\n` +
+          `- **Status**: Playing in ULTRON Music Player.`;
       }
     } else {
       // If stripped query was empty (e.g. user said "play a song"), play generic stream directly!
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ultron-pause-chat-video'));
+      }
       const track = await musicPlayer.playSong('', { isVideo: false });
       return fmt('🎵', 'Direct Music Playback Active', [
         `**Track**: "${track.title}"`,

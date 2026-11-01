@@ -22,7 +22,7 @@ import concurrent.futures
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
-HOST = '127.0.0.1'
+HOST = '0.0.0.0'
 PORT = 8000
 
 MEMORY_FILE = os.path.join(os.path.dirname(__file__), 'memory_bank.json')

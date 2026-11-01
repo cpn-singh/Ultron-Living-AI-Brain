@@ -21,6 +21,45 @@ function isAndroidBrowser() {
 }
 
 /**
+ * Intelligent deduplication for Android Chrome speech recognition glitches.
+ * Strips doubled phrases (e.g. "play song play song" -> "play song")
+ * and duplicate repeated words ("play play song" -> "play song").
+ */
+export function dedupeTranscript(text) {
+  if (!text) return '';
+  let s = text.trim().replace(/\s+/g, ' ');
+
+  // 1. Exact halving: "play Kas ka song play Kas ka song" -> "play Kas ka song"
+  const words = s.split(' ');
+  if (words.length >= 2 && words.length % 2 === 0) {
+    const mid = words.length / 2;
+    const firstHalf = words.slice(0, mid).join(' ');
+    const secondHalf = words.slice(mid).join(' ');
+    if (firstHalf.toLowerCase() === secondHalf.toLowerCase()) {
+      return firstHalf;
+    }
+  }
+
+  // 2. Repeated sentence / sub-phrase chunks
+  for (let len = Math.floor(words.length / 2); len >= 2; len--) {
+    for (let i = 0; i <= words.length - 2 * len; i++) {
+      const p1 = words.slice(i, i + len).join(' ').toLowerCase();
+      const p2 = words.slice(i + len, i + 2 * len).join(' ').toLowerCase();
+      if (p1 === p2) {
+        words.splice(i + len, len);
+        s = words.join(' ');
+        break;
+      }
+    }
+  }
+
+  // 3. Repeated single words: "play play song song" -> "play song"
+  s = s.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  return s.trim();
+}
+
+/**
  * Returns true if the Web Speech API is available in the current browser.
  * Modern Android Chrome (v33+) supports webkitSpeechRecognition natively.
  */
@@ -34,9 +73,7 @@ function isWebSpeechAvailable() {
  */
 export async function isVoiceAvailable() {
   if (typeof window !== 'undefined') {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) return true;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) return true;
+    if (isWebSpeechAvailable()) return true;
   }
   if (Capacitor.isNativePlatform()) {
     try {
@@ -51,7 +88,11 @@ export async function isVoiceAvailable() {
 
 /**
  * Request audio microphone permissions from the browser.
- * Uses navigator.permissions query when available to avoid unnecessary getUserMedia track interruptions.
+ * Uses navigator.permissions query when available.
+ * CRITICAL FOR ANDROID CHROME: Never call getUserMedia here!
+ * On Android Chrome, getUserMedia locks the hardware audio recording channel, causing Google Speech Services
+ * to throw: "Speech Recognition and Synthesis from Google cannot record now as Browser is recording"
+ * SpeechRecognition natively manages its own permissions dialog.
  */
 export async function requestMicrophonePermission() {
   if (typeof window === 'undefined') return false;
@@ -64,17 +105,7 @@ export async function requestMicrophonePermission() {
     } catch (e) {}
   }
 
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      return true;
-    } catch (err) {
-      console.warn('[VoiceService] Microphone permission request failed:', err);
-      return false;
-    }
-  }
-  return true;
+  return isWebSpeechAvailable();
 }
 
 /**
@@ -226,17 +257,52 @@ class UltronContinuousVoiceEngine {
     this.latestResultsLength = 0;
     this.manualTriggerActive = false;
     this.manualResolve = null;
+    this.lastSubmittedTs = 0;
+    this.lastSubmittedCommand = '';
+    this.isPausedForMedia = false;
+  }
+
+  isMediaPlaying() {
+    try {
+      return !!(musicPlayer && musicPlayer.state && musicPlayer.state.isPlaying);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  isMediaPlayingOnAndroid() {
+    return isAndroidBrowser() && (this.isPausedForMedia || this.isMediaPlaying());
+  }
+
+  pauseContinuousForMedia() {
+    this.isPausedForMedia = true;
+    if (this.recognition && !this.manualTriggerActive) {
+      try {
+        this.recognition.abort();
+      } catch (e) {}
+      this.recognition = null;
+    }
+  }
+
+  resumeContinuousFromMedia() {
+    this.isPausedForMedia = false;
+    if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && (!isAndroidBrowser() || !this.isMediaPlaying())) {
+      setTimeout(() => this.start(), 500);
+    }
   }
 
   setState(newState) {
     this.state = newState;
 
-    // Intelligent Audio Ducking: lowers music volume when listening to user
+    // Intelligent Audio Ducking: lowers music volume when listening to user on Desktop
+    // On Android browser, avoid setVolume calls that trigger OS audio pauses
     try {
-      if (newState === 'listening' && musicPlayer.state.isPlaying) {
-        musicPlayer.setVolume(0.2);
-      } else if (newState === 'idle' && musicPlayer.state.isPlaying) {
-        musicPlayer.setVolume(0.85);
+      if (!isAndroidBrowser()) {
+        if (newState === 'listening' && musicPlayer.state.isPlaying) {
+          musicPlayer.setVolume(0.2);
+        } else if (newState === 'idle' && musicPlayer.state.isPlaying) {
+          musicPlayer.setVolume(0.85);
+        }
       }
     } catch (e) {}
 
@@ -288,6 +354,13 @@ class UltronContinuousVoiceEngine {
   init(callbacks = {}) {
     this.callbacks = { ...this.callbacks, ...callbacks };
     this.isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
+
+    if (typeof window !== 'undefined' && !this.mediaListenersAttached) {
+      this.mediaListenersAttached = true;
+      window.addEventListener('ultron-media-playing', () => this.pauseContinuousForMedia());
+      window.addEventListener('ultron-media-paused', () => this.resumeContinuousFromMedia());
+    }
+
     if (this.isEnabled) {
       this.start();
     }
@@ -309,6 +382,12 @@ class UltronContinuousVoiceEngine {
 
   async start() {
     if (typeof window === 'undefined') return;
+
+    // Never auto-start continuous background mic if media is actively playing on mobile (avoids Android OS audio pause loop)
+    if (isAndroidBrowser() && this.isMediaPlaying() && !this.manualTriggerActive) {
+      return;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.warn('[UltronVoice] Web Speech API not supported in this browser.');
@@ -326,7 +405,8 @@ class UltronContinuousVoiceEngine {
     try {
       const recognition = new SpeechRecognition();
       this.recognition = recognition;
-      recognition.continuous = true;
+      // On Android Chrome, continuous = false ensures single-utterance stability without hardware contention
+      recognition.continuous = !isAndroidBrowser();
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       recognition.lang = getSpeechLanguage();
@@ -351,7 +431,8 @@ class UltronContinuousVoiceEngine {
         let interim = '';
         let final = '';
 
-        for (let i = this.processedIndex; i < event.results.length; i++) {
+        const startIndex = isAndroidBrowser() ? 0 : this.processedIndex;
+        for (let i = startIndex; i < event.results.length; i++) {
           const res = event.results[i];
           if (res.isFinal) {
             final += ' ' + res[0].transcript;
@@ -360,7 +441,7 @@ class UltronContinuousVoiceEngine {
           }
         }
 
-        const rawSpoken = (final + ' ' + interim).trim();
+        const rawSpoken = dedupeTranscript((final + ' ' + interim).trim());
         if (!rawSpoken) return;
 
         const normalizedSpoken = rawSpoken.toLowerCase().replace(/[^a-z0-9\u0900-\u097F\s]/gu, ' ').replace(/\s+/g, ' ').trim();
@@ -474,10 +555,14 @@ class UltronContinuousVoiceEngine {
         console.warn('[UltronVoice] Recognition status:', event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           console.warn('[UltronVoice] Microphone permission denied');
-          this.isActive = false;
           this.setState('idle');
           if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(false);
           if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
+          if (typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            if (this.callbacks.onPartial) {
+              this.callbacks.onPartial('Chrome blocks mic over HTTP. Please use HTTPS link.');
+            }
+          }
           return;
         }
 
@@ -490,14 +575,17 @@ class UltronContinuousVoiceEngine {
         this.processedIndex = 0;
         this.latestResultsLength = 0;
 
-        // Auto-restart continuous session with a safe debounce so listening stays alive 24/7
-        if (this.isEnabled && this.isActive) {
+        // Auto-restart continuous session ONLY on desktop and when media is not actively playing
+        // On Android mobile, single-utterance manual triggers prevent OS audio conflicts and infinite play/pause loops
+        const shouldRestart = this.isEnabled && this.isActive && !isAndroidBrowser() && !this.isMediaPlaying();
+
+        if (shouldRestart) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
-            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting) {
+            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && !isAndroidBrowser() && !this.isMediaPlaying()) {
               this.start();
             }
-          }, 600);
+          }, 500);
         } else {
           this.setState('idle');
           if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
@@ -548,11 +636,21 @@ class UltronContinuousVoiceEngine {
     }
 
     const command = (this.currentCommandText || '').trim();
-    const cleanCommand = command.replace(/^["'\s,.\-]+|["'\s,.\-]+$/g, '').trim();
+    const cleanCommand = dedupeTranscript(command.replace(/^["'\s,.\-]+|["'\s,.\-]+$/g, '').trim());
     const nonWakePart = cleanCommand.replace(WAKE_WORD_REGEX, '').trim();
     const hasValidCommand = cleanCommand.length > 1 && (this.manualTriggerActive || nonWakePart.length > 0);
 
+    // Guard against duplicate rapid submission on Android Chrome
+    const now = Date.now();
+    if (now - this.lastSubmittedTs < 1500 && cleanCommand.toLowerCase() === this.lastSubmittedCommand.toLowerCase()) {
+      console.log('[UltronVoice] Suppressing duplicate rapid submission on Android Chrome:', cleanCommand);
+      this.currentCommandText = '';
+      return;
+    }
+
     if (hasValidCommand) {
+      this.lastSubmittedTs = now;
+      this.lastSubmittedCommand = cleanCommand;
       this.setState('processing');
       if (this.callbacks.onPartial) this.callbacks.onPartial(cleanCommand);
 
@@ -605,9 +703,20 @@ class UltronContinuousVoiceEngine {
     this.scheduleSilenceSubmit(3500);
     this.scheduleHardTimeout(7000);
 
-    if (!this.recognition) {
-      this.start();
+    // On mobile, if media is playing, pause it so mic has clean audio focus without OS interference
+    if (this.isMediaPlaying()) {
+      musicPlayer.pause();
     }
+
+    // Force clean restart so manual button click ALWAYS captures speech fresh immediately
+    if (this.recognition) {
+      try {
+        this.recognition.abort();
+      } catch (e) {}
+      this.recognition = null;
+    }
+    this.isStarting = false;
+    this.start();
   }
 
   cancelManual() {

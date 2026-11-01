@@ -8,7 +8,9 @@ import { selfHealingEngine } from './selfHealingService';
 
 const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA';
 const DEFAULT_NVIDIA_KEY = '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';
-const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
+const PYTHON_BACKEND_URL = typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : 'http://127.0.0.1:8000';
 let pythonBackendAvailable = null;
 let lastPythonCheckTime = 0;
 

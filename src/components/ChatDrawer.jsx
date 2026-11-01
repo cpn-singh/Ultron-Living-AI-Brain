@@ -72,11 +72,12 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Filter out legacy error artifacts and strip legacy youtube blocks from past music queries
+          // Only explicit video messages (with '### 🎬 Playing Video') should retain video blocks
           const cleaned = parsed.map(m => {
-            if (typeof m.text === 'string' && m.text.includes('```youtube')) {
+            if (typeof m.text === 'string' && m.text.includes('```youtube') && !m.text.includes('### 🎬 Playing Video')) {
               return {
                 ...m,
-                text: m.text.replace(/```youtube[\s\S]*?```/g, '').replace(/\[▶️ Click here to open.*?\]\(.*?\)/g, '').trim()
+                text: m.text.replace(/```youtube[\s\S]*?```/g, '').replace(/\[▶️ (?:Click here to open|Open).*?\]\(.*?\)/g, '').trim()
               };
             }
             return m;
@@ -191,16 +192,25 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     }
   }, [input, addMessage, onSwitchTab, webSearchEnabled]);
 
-  // Proactively purge any cached legacy voice error messages
+  // Proactively purge any cached legacy voice error messages or duplicate youtube embeds from music commands
   useEffect(() => {
     setMessages(prev => {
-      const hasCorrupt = prev.some(m => 
+      const needsCleanup = prev.some(m => 
         m.text?.includes('Speech-to-text service is unavailable') ||
         m.text?.includes('offline voice model') ||
-        m.text?.includes('Voice error:')
+        m.text?.includes('Voice error:') ||
+        (typeof m.text === 'string' && m.text.includes('```youtube') && !m.text.includes('### 🎬 Playing Video'))
       );
-      if (!hasCorrupt) return prev;
-      const purged = prev.filter(m => 
+      if (!needsCleanup) return prev;
+      const purged = prev.map(m => {
+        if (typeof m.text === 'string' && m.text.includes('```youtube') && !m.text.includes('### 🎬 Playing Video')) {
+          return {
+            ...m,
+            text: m.text.replace(/```youtube[\s\S]*?```/g, '').replace(/\[▶️ (?:Click here to open|Open).*?\]\(.*?\)/g, '').trim()
+          };
+        }
+        return m;
+      }).filter(m => 
         !m.text?.includes('Speech-to-text service is unavailable') &&
         !m.text?.includes('offline voice model') &&
         !m.text?.includes('Voice error:')

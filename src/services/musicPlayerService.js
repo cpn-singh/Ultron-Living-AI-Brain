@@ -45,6 +45,7 @@ class MusicPlayerService {
     ];
 
     this.currentIndex = 0;
+    this.isUserPaused = false;
     this.state = {
       isOpen: false,
       isPlaying: false,
@@ -80,16 +81,26 @@ class MusicPlayerService {
     });
 
     this.audioElement.addEventListener('ended', () => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ultron-media-paused'));
+      }
       this.next();
     });
 
     this.audioElement.addEventListener('play', () => {
+      this.isUserPaused = false;
       this.state.isPlaying = true;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ultron-media-playing'));
+      }
       this.notify();
     });
 
     this.audioElement.addEventListener('pause', () => {
       this.state.isPlaying = false;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ultron-media-paused'));
+      }
       this.notify();
     });
 
@@ -127,10 +138,12 @@ class MusicPlayerService {
    */
   async playSong(query = '', options = {}) {
     this.initAudio();
+    this.isUserPaused = false;
 
-    // Coordinate single audio output: stop any chat video player
+    // Coordinate single audio output: stop any chat video player and notify voice engine
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ultron-pause-chat-video'));
+      window.dispatchEvent(new CustomEvent('ultron-media-playing'));
     }
 
     const clean = (query || '').trim();
@@ -185,7 +198,8 @@ class MusicPlayerService {
 
       // Resolve real video ID asynchronously via backend
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/yt-search', {
+        const apiUrl = typeof window !== 'undefined' ? '/api/yt-search' : 'http://127.0.0.1:8000/api/yt-search';
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: clean })
@@ -247,14 +261,22 @@ class MusicPlayerService {
   }
 
   pause() {
+    this.isUserPaused = true;
     if (this.state.sourceType === 'audio' && this.audioElement) {
       this.audioElement.pause();
     }
     this.state.isPlaying = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ultron-media-paused'));
+    }
     this.notify();
   }
 
   async resume() {
+    this.isUserPaused = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ultron-media-playing'));
+    }
     if (this.state.sourceType === 'audio' && this.audioElement) {
       try {
         await this.audioElement.play();

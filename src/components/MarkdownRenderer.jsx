@@ -92,7 +92,7 @@ function CodeBlockItem({ language, code }) {
       }
     } else if (cleanLang === 'python' || cleanLang === 'py') {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/execute', {
+        const res = await fetch('/api/execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, language: 'python' })
@@ -230,7 +230,7 @@ function YouTubeEmbedBlock({ query }) {
     if (!videoId) {
       setLoading(true);
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/yt-search', {
+        const res = await fetch('/api/yt-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: cleanQuery })
@@ -258,7 +258,7 @@ function YouTubeEmbedBlock({ query }) {
       window.electronAPI.openExternal(ytSearchUrl);
       return;
     }
-    fetch('http://127.0.0.1:8000/api/open-url', {
+    fetch('/api/open-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: ytSearchUrl })

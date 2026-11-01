@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Navbar from './components/Navbar';
 import BrainCanvas from './components/BrainCanvas';
 import ChatDrawer from './components/ChatDrawer';
@@ -41,9 +41,20 @@ export default function App() {
     setActiveTab(tab);
   }, []);
 
+  const lastProcessedSpeechRef = useRef('');
+  const lastProcessedSpeechTsRef = useRef(0);
+
   const handleSpeechResult = useCallback((text) => {
     if (text && text.trim()) {
-      setSpeechTriggerText({ text: text.trim(), ts: Date.now() });
+      const clean = text.trim();
+      const now = Date.now();
+      // Drop duplicate submissions within 1.5 seconds on Android Chrome
+      if (now - lastProcessedSpeechTsRef.current < 1500 && clean.toLowerCase() === lastProcessedSpeechRef.current.toLowerCase()) {
+        return;
+      }
+      lastProcessedSpeechRef.current = clean;
+      lastProcessedSpeechTsRef.current = now;
+      setSpeechTriggerText({ text: clean, ts: now });
       setActiveTab('chat');
     }
   }, []);

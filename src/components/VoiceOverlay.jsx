@@ -75,21 +75,12 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       }
     });
 
-    // Start continuous listener immediately on mount
+    // Start continuous listener immediately on desktop if enabled (on mobile, user taps mic button)
+    const isMobileBrowser = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
     const shouldStart = localStorage.getItem('ultron_wake_word') !== 'false';
-    if (shouldStart) {
+    if (shouldStart && !isMobileBrowser) {
       ultronVoiceEngine.activate().catch(() => {});
     }
-
-    // Auto-prime listener on user interaction
-    const handleDocumentInteraction = () => {
-      const isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
-      if (isEnabled && !ultronVoiceEngine.isListeningContinuous()) {
-        ultronVoiceEngine.activate().catch(() => {});
-      }
-    };
-    window.addEventListener('click', handleDocumentInteraction, { passive: true });
-    window.addEventListener('keydown', handleDocumentInteraction, { passive: true });
 
     // Listen for Settings toggle & language change events
     const handleToggleEvent = (e) => {
@@ -112,8 +103,6 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
     window.addEventListener('ultron-speech-lang-change', handleLangChangeEvent);
 
     return () => {
-      window.removeEventListener('click', handleDocumentInteraction);
-      window.removeEventListener('keydown', handleDocumentInteraction);
       window.removeEventListener('ultron-wake-word-toggle', handleToggleEvent);
       window.removeEventListener('ultron-speech-lang-change', handleLangChangeEvent);
     };
