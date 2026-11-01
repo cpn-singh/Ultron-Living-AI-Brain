@@ -159,100 +159,100 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
 
   // 4a. Try Cloud Gemini API (Premier Frontier 2026 Models with Cascading Fallback)
   const geminiKey = localStorage.getItem('ultron_gemini_key') || DEFAULT_GEMINI_KEY;
+  const isLikelyValidGeminiKey = geminiKey && geminiKey.startsWith('AIzaSy') && geminiKey.length > 25;
   const geminiModels = [
-    'gemini-3.8-flash',
-    'gemini-3.6-flash',
-    'gemini-3.5-flash-lite',
     'gemini-2.5-flash',
-    'gemini-flash-latest'
+    'gemini-3.8-flash',
+    'gemini-3.6-flash'
   ];
 
   const needsSearchGrounding = ['latest', 'recent', 'today', 'news', 'who is', 'what is', 'current', 'score', 'weather', 'stock', 'price'].some(w => lower.includes(w));
 
-  for (const modelName of geminiModels) {
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
-      const payload = {
-        contents: [
-          { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
-        ]
-      };
+  if (isLikelyValidGeminiKey) {
+    for (const modelName of geminiModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+        const payload = {
+          contents: [
+            { parts: [{ text: `${systemPrompt}\n\nUser Request: ${trimmed}` }] }
+          ]
+        };
 
-      // Add Google Search Grounding when relevant
-      if (needsSearchGrounding) {
-        payload.tools = [{ googleSearch: {} }];
-      }
-
-      const response = await safeFetchPost(geminiUrl, payload, {
-        'Content-Type': 'application/json'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const candidate = data.candidates?.[0];
-        let answer = candidate?.content?.parts?.[0]?.text;
-        if (answer && answer.trim()) {
-          // Extract web sources from grounding metadata if available
-          const grounding = candidate?.groundingMetadata;
-          if (grounding && Array.isArray(grounding.groundingChunks)) {
-            const sources = grounding.groundingChunks
-              .map(c => c.web?.uri ? `[${c.web?.title || 'Source'}](${c.web?.uri})` : null)
-              .filter(Boolean);
-            const uniqueSources = [...new Set(sources)];
-            if (uniqueSources.length > 0) {
-              answer = answer.trim() + `\n\n🔍 **Verified Web Grounding Sources:**\n` + uniqueSources.slice(0, 4).map(s => `- ${s}`).join('\n');
-            }
-          }
-          return triggerColabCopyAndRedirect(answer.trim());
+        // Add Google Search Grounding when relevant
+        if (needsSearchGrounding) {
+          payload.tools = [{ googleSearch: {} }];
         }
-      } else if (response.status === 400 || response.status === 401 || response.status === 403) {
-        // Invalid or expired Gemini Key - stop looping over remaining models with this key
+
+        const response = await safeFetchPost(geminiUrl, payload, {
+          'Content-Type': 'application/json'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const candidate = data.candidates?.[0];
+          let answer = candidate?.content?.parts?.[0]?.text;
+          if (answer && answer.trim()) {
+            // Extract web sources from grounding metadata if available
+            const grounding = candidate?.groundingMetadata;
+            if (grounding && Array.isArray(grounding.groundingChunks)) {
+              const sources = grounding.groundingChunks
+                .map(c => c.web?.uri ? `[${c.web?.title || 'Source'}](${c.web?.uri})` : null)
+                .filter(Boolean);
+              const uniqueSources = [...new Set(sources)];
+              if (uniqueSources.length > 0) {
+                answer = answer.trim() + `\n\n🔍 **Verified Web Grounding Sources:**\n` + uniqueSources.slice(0, 4).map(s => `- ${s}`).join('\n');
+              }
+            }
+            return triggerColabCopyAndRedirect(answer.trim());
+          }
+        } else {
+          // Non-OK status: break early to avoid console noise
+          break;
+        }
+      } catch (err) {
         break;
       }
-    } catch (err) {
-      console.warn(`[AI Service] Cloud Gemini API (${modelName}) unavailable:`, err.message);
-      break;
     }
   }
 
   // 4b. Try Cloud NVIDIA NIM API (DeepSeek-R1, LLaMA 3.3, Nemotron 4)
   const nvidiaKey = localStorage.getItem('ultron_nvidia_key') || DEFAULT_NVIDIA_KEY;
+  const isLikelyValidNvidiaKey = nvidiaKey && nvidiaKey.startsWith('nvapi-') && nvidiaKey.length > 30;
   const nvidiaModels = [
     'deepseek-ai/deepseek-r1',
-    'meta/llama-3.3-70b-instruct',
-    'nvidia/nemotron-4-340b-instruct',
-    'meta/llama-3.2-11b-vision-instruct',
-    'mistralai/mistral-large-2-instruct'
+    'meta/llama-3.3-70b-instruct'
   ];
-  const nvidiaEndpoints = ['/nvidia-api/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
+  // Direct client browser calls to integrate.api.nvidia.com are blocked by CORS; use local proxy
+  const nvidiaEndpoints = ['/nvidia-api/v1/chat/completions'];
 
-  for (const endpoint of nvidiaEndpoints) {
-    for (const modelId of nvidiaModels) {
-      try {
-        const response = await safeFetchPost(endpoint, {
-          model: modelId,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: trimmed }
-          ],
-          temperature: 0.3,
-          max_tokens: 1500
-        }, {
-          'Authorization': `Bearer ${nvidiaKey}`,
-          'Accept': 'application/json'
-        });
+  if (isLikelyValidNvidiaKey) {
+    for (const endpoint of nvidiaEndpoints) {
+      for (const modelId of nvidiaModels) {
+        try {
+          const response = await safeFetchPost(endpoint, {
+            model: modelId,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: trimmed }
+            ],
+            temperature: 0.3,
+            max_tokens: 1500
+          }, {
+            'Authorization': `Bearer ${nvidiaKey}`,
+            'Accept': 'application/json'
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          const answer = data.choices?.[0]?.message?.content;
-          if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
-        } else if (response.status === 401 || response.status === 403) {
-          // Bad NVIDIA Key - avoid hammering remaining models
+          if (response.ok) {
+            const data = await response.json();
+            const answer = data.choices?.[0]?.message?.content;
+            if (answer && answer.trim()) return triggerColabCopyAndRedirect(answer.trim());
+          } else {
+            // If proxy returns 404/410/401/403, stop trying this endpoint
+            break;
+          }
+        } catch (err) {
           break;
         }
-      } catch (err) {
-        console.warn(`[AI Service] Cloud NVIDIA NIM (${modelId} on ${endpoint}) unavailable:`, err.message);
-        break;
       }
     }
   }
