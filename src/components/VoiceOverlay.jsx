@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, X, AlertCircle, Sparkles, Volume2, VolumeX, Radio } from 'lucide-react';
+import { Mic, MicOff, X, AlertCircle, Sparkles, Volume2, VolumeX, Radio, ShieldAlert } from 'lucide-react';
 import { 
   ultronVoiceEngine,
   requestMicrophonePermission,
@@ -75,12 +75,20 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       }
     });
 
-    // Start continuous listener immediately on desktop if enabled (on mobile, user taps mic button)
-    const isMobileBrowser = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    // Start continuous listener automatically on mount if enabled
     const shouldStart = localStorage.getItem('ultron_wake_word') !== 'false';
-    if (shouldStart && !isMobileBrowser) {
+    if (shouldStart) {
       ultronVoiceEngine.activate().catch(() => {});
     }
+
+    // Auto-activate continuous recognition on user's first touch/tap on mobile
+    const handleFirstTouch = () => {
+      if (shouldStart && !ultronVoiceEngine.isListeningContinuous()) {
+        ultronVoiceEngine.activate().catch(() => {});
+      }
+    };
+    window.addEventListener('touchstart', handleFirstTouch, { once: true, passive: true });
+    window.addEventListener('click', handleFirstTouch, { once: true });
 
     // Listen for Settings toggle & language change events
     const handleToggleEvent = (e) => {
@@ -105,6 +113,8 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
     return () => {
       window.removeEventListener('ultron-wake-word-toggle', handleToggleEvent);
       window.removeEventListener('ultron-speech-lang-change', handleLangChangeEvent);
+      window.removeEventListener('touchstart', handleFirstTouch);
+      window.removeEventListener('click', handleFirstTouch);
     };
   }, []);
 
@@ -152,6 +162,11 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
     ultronVoiceEngine.cancelManual();
   };
 
+  const isInsecureHttp = typeof window !== 'undefined' && 
+    window.location.protocol === 'http:' && 
+    window.location.hostname !== 'localhost' && 
+    window.location.hostname !== '127.0.0.1';
+
   return (
     <div className={`fixed bottom-24 sm:bottom-24 right-4 sm:right-6 flex-col items-end gap-3 z-40 pointer-events-auto select-none touch-manipulation ${
       activeTab === 'chat' ? 'hidden sm:flex' : 'flex'
@@ -164,17 +179,31 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
         </div>
       )}
 
-      {/* Mic Permission Warning Banner if denied */}
+      {/* Mic Permission or HTTPS Warning Banner if denied */}
       {!hasMicPermission && (
-        <button
-          type="button"
-          onClick={handleActivateWakeWord}
-          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] cursor-pointer animate-pulse transition-all active:scale-95 border border-amber-300"
-          title="Click to allow microphone access"
-        >
-          <Mic className="w-4 h-4 text-slate-950" />
-          <span>Allow Mic for "Hey Ultron"</span>
-        </button>
+        isInsecureHttp ? (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = `https://${window.location.hostname}:5173${window.location.pathname}${window.location.search}`;
+            }}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(239,68,68,0.5)] cursor-pointer animate-pulse transition-all active:scale-95 border border-red-300"
+            title="Chrome blocks microphone over HTTP on Android. Tap to switch to HTTPS"
+          >
+            <ShieldAlert className="w-4 h-4 text-white flex-shrink-0" />
+            <span>Switch to HTTPS (Required for Mic)</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleActivateWakeWord}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] cursor-pointer animate-pulse transition-all active:scale-95 border border-amber-300"
+            title="Click to allow microphone access"
+          >
+            <Mic className="w-4 h-4 text-slate-950 flex-shrink-0" />
+            <span>Allow Mic for "Hey Ultron"</span>
+          </button>
+        )
       )}
 
       {/* Listening Floating Overlay Visualizer Card */}

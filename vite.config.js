@@ -2,13 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
-const enableHttps = process.env.VITE_HTTPS === 'true' || process.env.HTTPS === 'true';
-
 export default defineConfig({
-  plugins: [
-    react(),
-    ...(enableHttps ? [basicSsl()] : [])
-  ],
+  plugins: [react(), basicSsl()],
   base: './',
   server: {
     host: '0.0.0.0',

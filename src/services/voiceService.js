@@ -405,8 +405,9 @@ class UltronContinuousVoiceEngine {
     try {
       const recognition = new SpeechRecognition();
       this.recognition = recognition;
-      // On Android Chrome, continuous = false ensures single-utterance stability without hardware contention
-      recognition.continuous = !isAndroidBrowser();
+      // Keep continuous listening enabled across platforms
+      // On modern Android Chrome, continuous = true allows hands-free wake word detection without dropping out after every phrase
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       recognition.lang = getSpeechLanguage();
@@ -575,17 +576,16 @@ class UltronContinuousVoiceEngine {
         this.processedIndex = 0;
         this.latestResultsLength = 0;
 
-        // Auto-restart continuous session ONLY on desktop and when media is not actively playing
-        // On Android mobile, single-utterance manual triggers prevent OS audio conflicts and infinite play/pause loops
-        const shouldRestart = this.isEnabled && this.isActive && !isAndroidBrowser() && !this.isMediaPlaying();
+        // Auto-restart continuous recognition automatically whenever media is not playing
+        const shouldRestart = this.isEnabled && this.isActive && !this.isMediaPlaying();
 
         if (shouldRestart) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
-            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && !isAndroidBrowser() && !this.isMediaPlaying()) {
+            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && !this.isMediaPlaying()) {
               this.start();
             }
-          }, 500);
+          }, isAndroidBrowser() ? 500 : 400);
         } else {
           this.setState('idle');
           if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
