@@ -14,7 +14,8 @@ export default function SettingsModal({ onClose }) {
   const [geminiTesting, setGeminiTesting] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState('');
   const [nvidiaKey, setNvidiaKey] = useState(() => localStorage.getItem('ultron_nvidia_key') || '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');
-  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('ultron_tts_voice') || 'af_heart');
+  const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('ultron_tts_voice') || 'ultron_prime');
+  const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('ultron_tts_enabled') !== 'false');
   const [voiceSpeed, setVoiceSpeed] = useState(() => localStorage.getItem('ultron_voice_speed') || '1.0');
   const [humanCompanion, setHumanCompanion] = useState(() => localStorage.getItem('ultron_human_companion') !== 'false');
   const [wakeWord, setWakeWord] = useState(() => localStorage.getItem('ultron_wake_word') !== 'false');
@@ -30,6 +31,7 @@ export default function SettingsModal({ onClose }) {
     localStorage.setItem('ultron_gemini_key', geminiKey);
     localStorage.setItem('ultron_nvidia_key', nvidiaKey);
     localStorage.setItem('ultron_tts_voice', selectedVoice);
+    localStorage.setItem('ultron_tts_enabled', ttsEnabled ? 'true' : 'false');
     localStorage.setItem('ultron_voice_speed', voiceSpeed);
     localStorage.setItem('ultron_human_companion', humanCompanion ? 'true' : 'false');
     localStorage.setItem('ultron_wake_word', wakeWord ? 'true' : 'false');
@@ -206,8 +208,27 @@ export default function SettingsModal({ onClose }) {
         {/* VOICE (TTS) Section */}
         <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-3">
           <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-cyan-400" /> VOICE (TTS)</span>
-            <span className="text-[10px] text-yellow-400 font-mono">Native Speech Engine</span>
+            <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-cyan-400" /> ULTRON VOICE (TTS)</span>
+            <span className="text-[10px] text-emerald-400 font-mono">Natural Neural Engine</span>
+          </div>
+
+          {/* Auto Speak Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-200">Auto Speak Responses</span>
+              <p className="text-[10px] text-slate-400">Speak AI responses automatically with human-like studio voices</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTtsEnabled(!ttsEnabled)}
+              className={`w-11 h-6 rounded-full p-1 transition-all duration-300 cursor-pointer ${
+                ttsEnabled ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                ttsEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
           </div>
 
           <div className="flex gap-2">
@@ -224,7 +245,7 @@ export default function SettingsModal({ onClose }) {
             <button
               type="button"
               onClick={() => testVoice(selectedVoice)}
-              className="px-3 py-2 rounded-xl text-xs text-cyan-200 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-700/50 flex items-center gap-1.5 transition-all"
+              className="px-3 py-2 rounded-xl text-xs text-cyan-200 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-700/50 flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Volume2 className="w-4 h-4 text-cyan-400" /> Test
             </button>

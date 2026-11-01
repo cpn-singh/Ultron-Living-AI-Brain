@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, X, AlertCircle, Sparkles, Volume2, Radio } from 'lucide-react';
+import { Mic, MicOff, X, AlertCircle, Sparkles, Volume2, VolumeX, Radio } from 'lucide-react';
 import { 
   ultronVoiceEngine,
   requestMicrophonePermission,
   playWakeChime
 } from '../services/voiceService';
+import { stopSpeech, isUltronSpeaking } from '../services/voiceTtsService';
 
 export default function VoiceOverlay({ activeTab, onSpeechResult }) {
   const [voiceState, setVoiceState] = useState('idle'); // 'idle' | 'listening' | 'processing'
@@ -15,14 +16,27 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
   const [equalizerHeights, setEqualizerHeights] = useState([8, 14, 6, 20, 10, 18, 7, 16, 14, 11, 9, 15]);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(() => localStorage.getItem('ultron_wake_word') !== 'false');
   const [wakeTriggered, setWakeTriggered] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const isListening = voiceState === 'listening';
   const isProcessing = voiceState === 'processing';
 
-  // Animate audio equalizer bars when listening
+  // Listen to Ultron speech synthesis events
+  useEffect(() => {
+    const handleStart = () => setIsSpeaking(true);
+    const handleEnd = () => setIsSpeaking(false);
+    window.addEventListener('ultron-speaking-start', handleStart);
+    window.addEventListener('ultron-speaking-end', handleEnd);
+    return () => {
+      window.removeEventListener('ultron-speaking-start', handleStart);
+      window.removeEventListener('ultron-speaking-end', handleEnd);
+    };
+  }, []);
+
+  // Animate audio equalizer bars when listening or Ultron speaking
   useEffect(() => {
     let interval;
-    if (isListening) {
+    if (isListening || isSpeaking) {
       interval = setInterval(() => {
         setEqualizerHeights(
           Array.from({ length: 12 }, () => Math.floor(Math.random() * 20) + 4)
@@ -30,7 +44,7 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [isListening]);
+  }, [isListening, isSpeaking]);
 
   // Initialize unified continuous voice engine
   useEffect(() => {
@@ -58,15 +72,15 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       }
     });
 
-    // Start continuous listener immediately on mount without delay
+    // Start continuous listener immediately on mount
     if (wakeWordEnabled) {
-      ultronVoiceEngine.start().catch(() => {});
+      ultronVoiceEngine.activate().catch(() => {});
     }
 
     // Auto-prime listener on user interaction
     const handleDocumentInteraction = () => {
       if (wakeWordEnabled && !ultronVoiceEngine.isListeningContinuous()) {
-        ultronVoiceEngine.start().catch(() => {});
+        ultronVoiceEngine.activate().catch(() => {});
       }
     };
     window.addEventListener('click', handleDocumentInteraction, { passive: true });
@@ -125,8 +139,12 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
     }
   };
 
-  // Toggle listening from UI button
+  // Toggle listening or stop speech from UI button
   const toggleListening = async () => {
+    if (isSpeaking) {
+      stopSpeech();
+      return;
+    }
     if (voiceState === 'listening') {
       ultronVoiceEngine.submitCurrentCommand();
     } else {
@@ -211,19 +229,23 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
         {/* Continuous Wake Word Active / Trigger Badge */}
         <button
           type="button"
-          onClick={handleActivateWakeWord}
+          onClick={isSpeaking ? stopSpeech : handleActivateWakeWord}
           className={`px-3 py-1.5 rounded-full text-xs font-sans font-medium transition-all flex items-center gap-2 cursor-pointer border ${
             wakeTriggered
               ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/70 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+              : isSpeaking
+              ? 'bg-cyan-950/90 text-cyan-200 border-cyan-400 shadow-[0_0_18px_rgba(6,182,212,0.6)] animate-pulse'
               : isEngineActive
               ? 'bg-slate-950/90 text-cyan-300 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.35)] hover:border-cyan-400'
               : 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse hover:bg-emerald-900/60'
           }`}
-          title={isEngineActive ? 'Continuous listening active! Say "Hey Ultron" anytime' : 'Click to activate continuous "Hey Ultron" voice listening'}
+          title={isSpeaking ? 'Ultron speaking. Click to silence' : isEngineActive ? 'Continuous listening active! Say "Hey Ultron" anytime' : 'Click to activate continuous "Hey Ultron" voice listening'}
         >
           <span className={`w-2 h-2 rounded-full ${
             wakeTriggered 
               ? 'bg-emerald-300 animate-ping' 
+              : isSpeaking
+              ? 'bg-cyan-300 animate-ping'
               : isListening
               ? 'bg-cyan-400 animate-ping'
               : isEngineActive 
@@ -233,6 +255,8 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
           <span>
             {wakeTriggered 
               ? 'Heard "Hey Ultron"' 
+              : isSpeaking
+              ? 'Ultron speaking...'
               : isListening
               ? 'Listening...'
               : isEngineActive 
@@ -242,7 +266,7 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
         </button>
 
         <div className="relative flex items-center justify-center">
-          {(isListening || isProcessing) && (
+          {(isListening || isProcessing || isSpeaking) && (
             <>
               <div
                 className="absolute inset-0 rounded-full border border-green-400 animate-ping opacity-60 pointer-events-none"
@@ -258,14 +282,16 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
           <button
             type="button"
             onClick={toggleListening}
-            aria-label={isListening ? 'Stop voice listening' : 'Start voice listening'}
-            title={isListening ? 'Stop listening (⌘⇧Space)' : 'Start voice input (or say "Hey Ultron")'}
+            aria-label={isSpeaking ? 'Silence Ultron voice' : isListening ? 'Stop voice listening' : 'Start voice listening'}
+            title={isSpeaking ? 'Silence Ultron voice (Click or Space)' : isListening ? 'Stop listening (⌘⇧Space)' : 'Start voice input (or say "Hey Ultron")'}
             className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-lime-400 via-emerald-400 to-green-300 shadow-[0_0_30px_rgba(34,197,94,0.75),0_0_70px_rgba(16,185,129,0.35)] flex items-center justify-center cursor-pointer select-none transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 ${
-              isListening ? 'scale-110 animate-pulse' : 'hover:scale-105'
+              isListening || isSpeaking ? 'scale-110 animate-pulse' : 'hover:scale-105'
             }`}
           >
             <div>
-              {isListening ? (
+              {isSpeaking ? (
+                <Volume2 className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold animate-bounce" />
+              ) : isListening ? (
                 <MicOff className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold" />
               ) : (
                 <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold" />

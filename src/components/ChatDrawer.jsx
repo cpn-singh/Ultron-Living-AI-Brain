@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, Mic, MicOff, Loader2, Copy, Check, Sparkles, Minus, Maximize2, Minimize2, X, Terminal, MessageSquare,
-  Paperclip, Volume2, Bookmark, Eye, Brain, Clock, ChevronDown, Plus, ExternalLink, Activity, Target,
+  Paperclip, Volume2, VolumeX, Bookmark, Eye, Brain, Clock, ChevronDown, Plus, ExternalLink, Activity, Target,
   Globe, Download, Trash2, ChevronRight, Bot
 } from 'lucide-react';
 import { generateAIResponse } from '../services/aiService';
 import { startVoiceRecognition, stopVoiceRecognition, isVoiceAvailable } from '../services/voiceService';
-import { speakText } from '../services/voiceTtsService';
+import { speakText, stopSpeech } from '../services/voiceTtsService';
 import { BOTS } from '../data/botsData';
 import MarkdownRenderer from './MarkdownRenderer';
 
@@ -43,6 +43,8 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [memoryCount, setMemoryCount] = useState(4);
+  const [isTtsEnabled, setIsTtsEnabled] = useState(() => localStorage.getItem('ultron_tts_enabled') !== 'false');
+  const [isUltronTalking, setIsUltronTalking] = useState(false);
   const messagesEndRef = useRef(null);
   const processedSpeechTsRef = useRef(null);
   const loadingRef = useRef(loading);
@@ -51,6 +53,17 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   activeAgentRef.current = activeAgent;
   const activeBotNameRef = useRef(activeBotObj.name);
   activeBotNameRef.current = activeBotObj.name;
+
+  useEffect(() => {
+    const onStart = () => setIsUltronTalking(true);
+    const onEnd = () => setIsUltronTalking(false);
+    window.addEventListener('ultron-speaking-start', onStart);
+    window.addEventListener('ultron-speaking-end', onEnd);
+    return () => {
+      window.removeEventListener('ultron-speaking-start', onStart);
+      window.removeEventListener('ultron-speaking-end', onEnd);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -101,6 +114,12 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       const response = await generateAIResponse(userText, activeAgentRef.current, { onSwitchTab, webSearch: webSearchEnabled });
       const reply = response || 'Command executed.';
       addMessage('ULTRON', reply, activeBotNameRef.current);
+
+      // Speak response using high-definition natural voice if voice output is enabled
+      const ttsEnabled = localStorage.getItem('ultron_tts_enabled') !== 'false';
+      if (ttsEnabled) {
+        speakText(reply, { isAutoSpoken: true });
+      }
     } catch (err) {
       addMessage('ULTRON', `⚠️ Error: ${err.message}`, activeBotNameRef.current);
     } finally {
@@ -228,6 +247,42 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
 
         {/* Right Window Action Icons */}
         <div className="flex items-center gap-1 text-slate-400">
+          {/* TTS Voice Output Audio Toggle / Silence Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isUltronTalking) {
+                stopSpeech();
+              } else {
+                const next = !isTtsEnabled;
+                setIsTtsEnabled(next);
+                localStorage.setItem('ultron_tts_enabled', next ? 'true' : 'false');
+              }
+            }}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+              isUltronTalking
+                ? 'text-cyan-300 bg-cyan-950/80 border border-cyan-400 animate-pulse shadow-[0_0_12px_rgba(6,182,212,0.6)]'
+                : isTtsEnabled
+                ? 'text-cyan-400 hover:text-cyan-200 hover:bg-white/10'
+                : 'text-slate-600 hover:text-slate-400 hover:bg-white/10'
+            }`}
+            title={
+              isUltronTalking
+                ? "Ultron is speaking. Click to silence/stop voice"
+                : isTtsEnabled
+                ? "Ultron Voice Output: ACTIVE (Click to mute)"
+                : "Ultron Voice Output: MUTED (Click to unmute)"
+            }
+          >
+            {isUltronTalking ? (
+              <Volume2 className="w-3.5 h-3.5 animate-bounce text-cyan-300" />
+            ) : isTtsEnabled ? (
+              <Volume2 className="w-3.5 h-3.5" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5" />
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleExportChat}
@@ -355,12 +410,18 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                     </button>
                     <span>•</span>
                     <button
-                      onClick={() => speakText(m.text)}
+                      onClick={() => {
+                        if (isUltronTalking) {
+                          stopSpeech();
+                        } else {
+                          speakText(m.text);
+                        }
+                      }}
                       className="hover:text-cyan-400 flex items-center gap-1 cursor-pointer"
-                      title="Listen to message voice"
+                      title={isUltronTalking ? "Stop voice" : "Listen to message voice"}
                     >
-                      <Volume2 className="w-3 h-3 text-slate-400" />
-                      <span>Speak</span>
+                      <Volume2 className={`w-3 h-3 ${isUltronTalking ? 'text-cyan-400 animate-pulse' : 'text-slate-400'}`} />
+                      <span>{isUltronTalking ? 'Stop' : 'Speak'}</span>
                     </button>
                     <span>•</span>
                     <span className="font-mono text-cyan-400/80">{m.botName || activeBotObj.name}</span>

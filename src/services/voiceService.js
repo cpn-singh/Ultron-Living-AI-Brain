@@ -550,18 +550,21 @@ export function setSpeechLanguage(langCode) {
 
 /**
  * Broad multilingual phonetic regex supporting:
- * - Indian English & accents: "hey ultron", "ultron", "ultra", "altron", "aaltron", "eltron", "oltron", "all tron", "old tron", "haltron"
+ * - Indian English & accents: "hey ultron", "ultron", "ultra", "altron", "aaltron", "eltron", "oltron", "voltron", "waltron", "electron", "all tron", "old tron", "haltron"
  * - Hinglish prefixes: "arre ultron", "arey ultron", "suno ultron", "sun ultron", "bhai ultron", "oye ultron", "namaste ultron"
  * - Hindi (Devanagari): "हे अल्ट्रॉन", "अरे अल्ट्रॉन", "सुनो अल्ट्रॉन", "अल्ट्रॉन", "अल्ट्रा", "अलट्रान", "अलट्रोन", "नमस्ते अल्ट्रॉन"
+ * - Tolerant to punctuation (commas, periods, quotes) produced by Chrome speech models
  */
 export const WAKE_WORD_REGEX = new RegExp(
   '(?:' +
-    '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste)?\\s*' +
-    '(?:ultron|altron|aaltron|ultra|eltron|oltron|all\\s*tron|old\\s*tron|haltron|ultran|altran)\\b' +
+    '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste|yo)?' +
+    '[\\s,.\'\\"-]*' +
+    '(?:ultron|altron|aaltron|ultra|eltron|oltron|voltron|waltron|electron|all\\s*tron|old\\s*tron|haltron|ultran|altran|outrun|el\\s*drone|all\\s*drone|old\\s*drone)\\b' +
   ')|' +
   '(?:' +
-    '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?\\s*' +
-    '(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन)' +
+    '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?' +
+    '[\\s,.\'\\"-]*' +
+    '(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन|इलेक्ट्रॉन)' +
   ')',
   'i'
 );
@@ -578,10 +581,14 @@ export function extractCommandAfterWakeWord(text) {
     .replace(
       new RegExp(
         '^.*?(?:' +
-          '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste)?\\s*(?:ultron|altron|aaltron|ultra|eltron|oltron|all\\s*tron|old\\s*tron|haltron|ultran|altran)\\b' +
+          '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste|yo)?' +
+          '[\\s,.\'\\"-]*' +
+          '(?:ultron|altron|aaltron|ultra|eltron|oltron|voltron|waltron|electron|all\\s*tron|old\\s*tron|haltron|ultran|altran|outrun|el\\s*drone|all\\s*drone|old\\s*drone)\\b' +
         '|' +
-          '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?\\s*(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन)' +
-        ')[,.:;!\\-\\s]*',
+          '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?' +
+          '[\\s,.\'\\"-]*' +
+          '(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन|इलेक्ट्रॉन)' +
+        ')[\\s,.:;!\\-\\?\'"]*',
         'i'
       ),
       ''
@@ -591,8 +598,7 @@ export function extractCommandAfterWakeWord(text) {
 
 /**
  * UNIFIED ULTRON SPEECH & WAKE WORD ENGINE
- * Maintains an active persistent MediaStream so Chrome keeps the microphone hot,
- * runs continuous background listening for "Hey Ultron" / "Ultron",
+ * Runs continuous background listening for "Hey Ultron" / "Ultron",
  * plays the wake chime, captures the voice command, and submits it to AI.
  */
 class UltronContinuousVoiceEngine {
@@ -606,10 +612,31 @@ class UltronContinuousVoiceEngine {
     this.silenceTimer = null;
     this.hardSafetyTimer = null;
     this.restartTimer = null;
+    this.selfSpeakingTimeout = null;
     this.currentCommandText = '';
     this.isStarting = false;
     this.lastProcessedIndex = -1;
     this.highestResultIndex = -1;
+    this.isSelfSpeaking = false;
+  }
+
+  pauseSelfListening(maxDurationMs = 8000) {
+    this.isSelfSpeaking = true;
+    if (this.selfSpeakingTimeout) clearTimeout(this.selfSpeakingTimeout);
+    this.selfSpeakingTimeout = setTimeout(() => {
+      this.resumeSelfListening();
+    }, maxDurationMs);
+  }
+
+  resumeSelfListening() {
+    if (this.selfSpeakingTimeout) {
+      clearTimeout(this.selfSpeakingTimeout);
+      this.selfSpeakingTimeout = null;
+    }
+    setTimeout(() => {
+      this.lastProcessedIndex = Math.max(this.lastProcessedIndex, this.highestResultIndex);
+      this.isSelfSpeaking = false;
+    }, 300);
   }
 
   init(callbacks = {}) {
@@ -624,32 +651,10 @@ class UltronContinuousVoiceEngine {
     return this.isActive && !!this.recognition;
   }
 
-  async ensureAudioStream() {
-    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) return null;
-    if (this.mediaStream && this.mediaStream.active) return this.mediaStream;
-
-    try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
-      if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
-      return this.mediaStream;
-    } catch (err) {
-      console.warn('[UltronVoice] getUserMedia failed or denied:', err);
-      if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(false);
-      return null;
-    }
-  }
-
   async activate() {
     this.isEnabled = true;
     this.isActive = true;
     localStorage.setItem('ultron_wake_word', 'true');
-    await this.ensureAudioStream();
     playWakeChime();
     this.start();
   }
@@ -666,11 +671,6 @@ class UltronContinuousVoiceEngine {
     this.isStarting = true;
 
     try {
-      // Ensure microphone stream is active so Chrome never blocks background recognition
-      if (!this.mediaStream || !this.mediaStream.active) {
-        await this.ensureAudioStream();
-      }
-
       const recognition = new SpeechRecognition();
       this.recognition = recognition;
       recognition.continuous = true;
@@ -689,6 +689,12 @@ class UltronContinuousVoiceEngine {
       };
 
       recognition.onresult = (event) => {
+        // Clear self-speaking flag if browser is not actively talking
+        if (typeof window !== 'undefined' && (!window.speechSynthesis || !window.speechSynthesis.speaking)) {
+          this.isSelfSpeaking = false;
+        }
+        if (this.isSelfSpeaking) return;
+
         let interim = '';
         let final = '';
 
@@ -708,7 +714,7 @@ class UltronContinuousVoiceEngine {
         const rawSpoken = (final + ' ' + interim).trim();
         if (!rawSpoken) return;
 
-        const normalizedSpoken = rawSpoken.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        const normalizedSpoken = rawSpoken.toLowerCase().replace(/[^a-z0-9\u0900-\u097F\s]/gu, ' ').replace(/\s+/g, ' ').trim();
 
         // STATE 1: IDLE (Wake Word Detection Mode)
         if (this.state === 'idle') {

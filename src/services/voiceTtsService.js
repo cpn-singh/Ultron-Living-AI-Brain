@@ -1,26 +1,69 @@
 import { safeFetchPost } from './safeFetchService';
+import { ultronVoiceEngine } from './voiceService';
 
 /**
- * Nemio & ULTRON Speech Synthesis (TTS) & Voice Companion Service
- * High-reliability Web Speech API + Python Native SAPI5 Fallback
- * Formats all 10 voices with unique pitch, frequency, & acoustic profiles.
+ * ULTRON Speech Synthesis (TTS) & Living Voice Companion Service
+ * High-definition Natural Neural Web Speech API + Intelligent Human Prosody.
+ * Produces deep, charismatic, human-like voice delivery without synthetic/robotic artifacts.
  */
 
 export const VOICE_PROFILES = {
-  in_priya:    { name: "Priya (Indian English Articulate Female)", gender: 'female', lang: 'en-IN', pitch: 1.05, rate: 0.98 },
-  in_aarav:    { name: "Aarav (Indian English Confident Male)",     gender: 'male',   lang: 'en-IN', pitch: 0.82, rate: 0.98 },
-  hi_ananya:   { name: "Ananya (Hindi Warm Female - हिन्दी)",      gender: 'female', lang: 'hi-IN', pitch: 1.10, rate: 0.95 },
-  hi_kabir:    { name: "Kabir (Hindi Deep Male - हिन्दी)",         gender: 'male',   lang: 'hi-IN', pitch: 0.78, rate: 0.95 },
-  af_heart:    { name: "Heart (Warm & Intimate Female)",    gender: 'female', lang: 'en-US', pitch: 1.05, rate: 0.95 },
-  af_bella:    { name: "Bella (Smooth & Articulate Female)", gender: 'female', lang: 'en-US', pitch: 1.20, rate: 1.00 },
-  af_sarah:    { name: "Sarah (Soft & Friendly Female)",     gender: 'female', lang: 'en-US', pitch: 1.35, rate: 1.05 },
-  af_sky:      { name: "Sky (Bright & Youthful Female)",     gender: 'female', lang: 'en-US', pitch: 1.50, rate: 1.10 },
-  af_nicole:   { name: "Nicole (Calm & Whispery Female)",   gender: 'female', lang: 'en-US', pitch: 0.90, rate: 0.88 },
-  am_adam:     { name: "Adam (Clear & Confident Male)",      gender: 'male',   lang: 'en-US', pitch: 0.75, rate: 1.00 },
-  am_michael:  { name: "Michael (Warm & Conversational Male)", gender: 'male', lang: 'en-US', pitch: 0.85, rate: 0.95 },
-  bf_emma:     { name: "Emma (Elegant British Female)",      gender: 'female', lang: 'en-GB', pitch: 1.15, rate: 0.95 },
-  bf_isabella: { name: "Isabella (Gentle British Female)",   gender: 'female', lang: 'en-GB', pitch: 1.28, rate: 0.90 },
-  bm_george:   { name: "George (Classic British Male)",      gender: 'male',   lang: 'en-GB', pitch: 0.70, rate: 0.92 }
+  ultron_prime: { 
+    name: "Ultron Prime (Deep, Commanding Studio Male)", 
+    gender: 'male', 
+    lang: 'en-US', 
+    pitch: 0.90, 
+    rate: 0.98,
+    preferred: ['christopher', 'guy', 'ryan', 'eric', 'andrew', 'google uk english male', 'george', 'david']
+  },
+  ultron_jarvis: { 
+    name: "Ultron Jarvis (Sophisticated British Studio Male)", 
+    gender: 'male', 
+    lang: 'en-GB', 
+    pitch: 0.94, 
+    rate: 0.98,
+    preferred: ['george', 'oliver', 'google uk english male', 'alfie', 'daniel', 'hazel', 'susan']
+  },
+  ultron_kabir: { 
+    name: "Ultron Kabir (Charismatic Indian English & Hindi Male)", 
+    gender: 'male', 
+    lang: 'en-IN', 
+    pitch: 0.88, 
+    rate: 0.96,
+    preferred: ['prabhat', 'madhur', 'aarav', 'hemant', 'google हिन्दी', 'neerja', 'ravi']
+  },
+  in_priya: { 
+    name: "Priya (Articulate Indian English Female)", 
+    gender: 'female', 
+    lang: 'en-IN', 
+    pitch: 1.02, 
+    rate: 0.98,
+    preferred: ['neerja', 'heera', 'kalpana', 'priya', 'google हिन्दी']
+  },
+  af_heart: { 
+    name: "Heart (Warm Natural Studio Female)", 
+    gender: 'female', 
+    lang: 'en-US', 
+    pitch: 1.02, 
+    rate: 0.98,
+    preferred: ['jenny', 'aria', 'samantha', 'zira', 'google us english']
+  },
+  am_adam: { 
+    name: "Adam (Clear Confident Male)", 
+    gender: 'male', 
+    lang: 'en-US', 
+    pitch: 0.85, 
+    rate: 1.00,
+    preferred: ['guy', 'ryan', 'david']
+  },
+  bf_emma: { 
+    name: "Emma (Elegant British Female)", 
+    gender: 'female', 
+    lang: 'en-GB', 
+    pitch: 1.08, 
+    rate: 0.96,
+    preferred: ['sonia', 'libby', 'hazel']
+  }
 };
 
 export const VOICE_OPTIONS = Object.fromEntries(
@@ -29,7 +72,8 @@ export const VOICE_OPTIONS = Object.fromEntries(
 
 let synth = typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis : null;
 let systemVoices = [];
-const activeUtterances = new Set(); // Prevent Chromium Garbage Collection Bug
+const activeUtterances = new Set();
+let isSpeakingState = false;
 
 // Pre-load voices on startup
 if (synth) {
@@ -47,7 +91,14 @@ if (synth) {
 }
 
 /**
- * Play a pleasant acoustic chime before voice output
+ * Returns true if Ultron is currently speaking through the speakers.
+ */
+export function isUltronSpeaking() {
+  return isSpeakingState || (synth && synth.speaking);
+}
+
+/**
+ * Play a subtle futuristic acoustic chime before voice output
  */
 export function playAcousticChime() {
   try {
@@ -58,35 +109,132 @@ export function playAcousticChime() {
     const gain = ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5 note
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
 
-    gain.gain.setValueAtTime(0.05, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start();
-    osc.stop(ctx.currentTime + 0.3);
+    osc.stop(ctx.currentTime + 0.28);
   } catch (e) {
-    // ignore audio context failures
+    // Non-critical audio chime
   }
 }
 
 /**
- * Clean text of markdown, code blocks, URLs, and formatting
+ * Intelligently cleans raw LLM response text for human-like conversational speech:
+ * - Strips code blocks, syntax markers, raw URLs, and markdown headers
+ * - Converts abbreviations into natural spoken English
+ * - Removes robotic emojis and symbols
+ * - Keeps conversational flow concise and articulate
  */
-export function cleanTextForSpeech(text) {
+export function cleanTextForSpeech(text, isAutoSpoken = false) {
   if (!text) return '';
-  return text
-    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+
+  let cleaned = text
+    // Replace fenced code blocks with natural conversational pointer
+    .replace(/```[\s\S]*?```/g, ' I have placed the code in our chat. ')
+    // Replace inline code backticks
     .replace(/`([^`]+)`/g, '$1')
+    // Replace markdown links [Label](url) with Label
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/https?:\/\/\S+/g, 'link')
-    .replace(/[#*~_|\\/]/g, ' ')
+    // Remove bare URLs
+    .replace(/https?:\/\/\S+/g, '')
+    // Remove markdown headers #, ##, ###
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove bullet points and list numbering
+    .replace(/^[\*\-+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    // Remove blockquotes >
+    .replace(/^>\s+/gm, '')
+    // Remove bold, italic, strikethrough markdown
+    .replace(/[*_~]{1,3}(.*?)[*_~]{1,3}/g, '$1')
+    // Remove emojis and decorative Unicode symbols
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu, '')
+    // Clean technical brackets and noise symbols
+    .replace(/[|\\{}[\]<>^~]/g, ' ')
+    // Human pronunciation substitutions
+    .replace(/\be\.g\./gi, 'for example')
+    .replace(/\bi\.e\./gi, 'that is')
+    .replace(/\bvs\b/gi, 'versus')
+    .replace(/\bAI\b/g, 'A I')
+    .replace(/\bUI\b/g, 'U I')
+    .replace(/\bAPI\b/g, 'A P I')
+    // Normalize punctuation spacing
     .replace(/\s+/g, ' ')
     .trim();
+
+  // If automatically spoken from an interactive voice turn, summarize long technical outputs
+  if (isAutoSpoken && cleaned.length > 320) {
+    const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [];
+    if (sentences.length > 1) {
+      let excerpt = '';
+      for (const s of sentences) {
+        if ((excerpt + s).length > 280) break;
+        excerpt += s + ' ';
+      }
+      if (excerpt.trim()) {
+        cleaned = excerpt.trim() + ' Full technical details are displayed in our chat.';
+      }
+    }
+  }
+
+  return cleaned;
+}
+
+/**
+ * Finds the highest quality, most natural system voice:
+ * Strongly prioritizes modern Neural / Online / Natural voices (e.g. Christopher Online Natural,
+ * Guy Online Natural, Google UK English Male) over outdated, robotic desktop synthesizers.
+ */
+function findBestSystemVoice(profile) {
+  if (!synth || systemVoices.length === 0) return null;
+
+  const preferred = profile.preferred || [];
+  const isFemale = profile.gender === 'female';
+
+  // Tier 1: Match preferred names against high-definition Online/Natural/Neural voices
+  for (const pref of preferred) {
+    const match = systemVoices.find(v => {
+      const name = v.name.toLowerCase();
+      const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural') || name.includes('google');
+      return isNatural && name.includes(pref);
+    });
+    if (match) return match;
+  }
+
+  // Tier 2: Any Online / Natural voice matching gender and language
+  const naturalGenderMatch = systemVoices.find(v => {
+    const name = v.name.toLowerCase();
+    const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural') || name.includes('google');
+    if (!isNatural) return false;
+
+    const matchesGender = isFemale 
+      ? (name.includes('female') || name.includes('jenny') || name.includes('aria') || name.includes('neerja') || name.includes('zira'))
+      : (name.includes('male') || name.includes('guy') || name.includes('christopher') || name.includes('ryan') || name.includes('prabhat') || name.includes('george'));
+
+    return matchesGender;
+  });
+  if (naturalGenderMatch) return naturalGenderMatch;
+
+  // Tier 3: Any preferred voice regardless of natural tag
+  for (const pref of preferred) {
+    const match = systemVoices.find(v => v.name.toLowerCase().includes(pref));
+    if (match) return match;
+  }
+
+  // Tier 4: Language code match
+  const langPrefix = profile.lang.slice(0, 2).toLowerCase();
+  const langMatch = systemVoices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
+  if (langMatch) return langMatch;
+
+  // Tier 5: First available voice
+  return systemVoices[0] || null;
 }
 
 /**
@@ -101,19 +249,29 @@ async function fallbackPythonTts(text, profileKey, speed) {
 }
 
 /**
- * Speak text using Web Speech API with sentence chunking & GC protection
+ * Speaks text using high-fidelity natural speech synthesis with acoustic echo cancellation.
  */
 export function speakText(text, options = {}) {
   const {
-    voiceKey = localStorage.getItem('ultron_tts_voice') || 'af_heart',
+    voiceKey = localStorage.getItem('ultron_tts_voice') || 'ultron_prime',
     speed = parseFloat(localStorage.getItem('ultron_voice_speed') || '1.0'),
-    humanCompanion = localStorage.getItem('ultron_human_companion') !== 'false'
+    humanCompanion = localStorage.getItem('ultron_human_companion') !== 'false',
+    isAutoSpoken = false
   } = options;
 
-  const cleanText = cleanTextForSpeech(text);
+  const cleanText = cleanTextForSpeech(text, isAutoSpoken);
   if (!cleanText) return;
 
-  if (humanCompanion) {
+  // Signal UI and mute self-listening so Ultron's words don't trigger the microphone
+  isSpeakingState = true;
+  if (ultronVoiceEngine && ultronVoiceEngine.pauseSelfListening) {
+    ultronVoiceEngine.pauseSelfListening();
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ultron-speaking-start', { detail: { text: cleanText } }));
+  }
+
+  if (humanCompanion && !isAutoSpoken) {
     playAcousticChime();
   }
 
@@ -123,71 +281,68 @@ export function speakText(text, options = {}) {
   }
 
   try {
-    // Cancel prior speech & ensure engine is resumed (Chromium fix)
+    // Cancel prior speech & ensure engine is active
     synth.cancel();
+    activeUtterances.clear();
     if (synth.paused) synth.resume();
 
     if (systemVoices.length === 0) {
       systemVoices = synth.getVoices() || [];
     }
 
-    const profile = VOICE_PROFILES[voiceKey] || VOICE_PROFILES.af_heart;
-    
-    // Split long text into natural sentence chunks to prevent 15-second speech truncation bug
+    const profile = VOICE_PROFILES[voiceKey] || VOICE_PROFILES.ultron_prime;
+    const bestVoice = findBestSystemVoice(profile);
+
+    // Split long text into natural sentence chunks to prevent WebKit speech clipping
     const sentences = cleanText.match(/[^.!?]+(?:[.!?]+|$)/g)?.map(s => s.trim()).filter(Boolean) || [cleanText];
-    
+    let remainingSentences = sentences.length;
+
+    const cleanupSpeaking = () => {
+      isSpeakingState = false;
+      if (ultronVoiceEngine && ultronVoiceEngine.resumeSelfListening) {
+        ultronVoiceEngine.resumeSelfListening();
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ultron-speaking-end'));
+      }
+    };
+
     sentences.forEach((sentence, index) => {
-      const trimmedSentence = sentence.trim();
-      if (!trimmedSentence) return;
-
-      const utterance = new SpeechSynthesisUtterance(trimmedSentence);
-      
-      utterance.pitch = profile.pitch;
-      utterance.rate = Math.max(0.5, Math.min(2.0, speed * profile.rate));
-
-      // Match system voice
-      if (systemVoices.length > 0) {
-        const isFemale = profile.gender === 'female';
-        const isBritish = profile.lang.includes('GB');
-        const isIndian = profile.lang.includes('IN') || profile.lang.includes('hi');
-
-        let matched = systemVoices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = v.lang.toLowerCase();
-
-          if (isIndian && (l.includes('in') || l.includes('hi') || n.includes('india') || n.includes('hindi') || n.includes('heera') || n.includes('neerja') || n.includes('kalpana') || n.includes('hemant') || n.includes('prabhat'))) {
-            if (isFemale && (n.includes('female') || n.includes('neerja') || n.includes('heera') || n.includes('kalpana') || n.includes('priya'))) return true;
-            if (!isFemale && (n.includes('male') || n.includes('hemant') || n.includes('prabhat') || n.includes('aarav') || n.includes('ravi'))) return true;
-            return true;
-          }
-          if (isBritish && (l.includes('gb') || n.includes('uk') || n.includes('british'))) {
-            if (isFemale && (n.includes('female') || n.includes('zira') || n.includes('hazel') || n.includes('susan'))) return true;
-            if (!isFemale && (n.includes('male') || n.includes('george') || n.includes('david'))) return true;
-          }
-          if (isFemale && (n.includes('female') || n.includes('zira') || n.includes('samantha') || n.includes('eva') || n.includes('jenny'))) return true;
-          if (!isFemale && (n.includes('male') || n.includes('david') || n.includes('mark') || n.includes('alex'))) return true;
-          return false;
-        });
-
-        if (!matched) {
-          matched = systemVoices.find(v => isFemale ? (v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('female')) : (v.name.toLowerCase().includes('david') || v.name.toLowerCase().includes('male'))) || systemVoices[0];
-        }
-
-        if (matched) {
-          utterance.voice = matched;
-        }
+      const trimmed = sentence.trim();
+      if (!trimmed) {
+        remainingSentences--;
+        if (remainingSentences <= 0) cleanupSpeaking();
+        return;
       }
 
-      // Garbage Collection Protection
+      const utterance = new SpeechSynthesisUtterance(trimmed);
+      utterance.pitch = profile.pitch;
+      utterance.rate = Math.max(0.6, Math.min(1.8, speed * profile.rate));
+      utterance.volume = 1.0;
+
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        utterance.lang = bestVoice.lang || profile.lang;
+      }
+
+      // Chromium Garbage Collection Bug Safeguard
       activeUtterances.add(utterance);
 
       utterance.onend = () => {
         activeUtterances.delete(utterance);
+        remainingSentences--;
+        if (remainingSentences <= 0) {
+          cleanupSpeaking();
+        }
       };
 
       utterance.onerror = (e) => {
-        console.warn('[VoiceTTS] Utterance error, attempting fallback:', e);
+        console.warn('[VoiceTTS] Utterance error, falling back:', e);
         activeUtterances.delete(utterance);
+        remainingSentences--;
+        if (remainingSentences <= 0) {
+          cleanupSpeaking();
+        }
         if (index === 0) {
           fallbackPythonTts(cleanText, voiceKey, speed);
         }
@@ -198,12 +353,16 @@ export function speakText(text, options = {}) {
 
   } catch (err) {
     console.warn('[VoiceTTS] Web Speech exception:', err);
+    isSpeakingState = false;
+    if (ultronVoiceEngine && ultronVoiceEngine.resumeSelfListening) {
+      ultronVoiceEngine.resumeSelfListening();
+    }
     fallbackPythonTts(cleanText, voiceKey, speed);
   }
 }
 
 /**
- * Stop any current speech
+ * Stop any current speech and immediately re-arm microphone
  */
 export function stopSpeech() {
   if (synth) {
@@ -212,12 +371,20 @@ export function stopSpeech() {
     } catch (e) {}
   }
   activeUtterances.clear();
+  isSpeakingState = false;
+
+  if (ultronVoiceEngine && ultronVoiceEngine.resumeSelfListening) {
+    ultronVoiceEngine.resumeSelfListening();
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ultron-speaking-end'));
+  }
 }
 
 /**
  * Test a specific voice selection
  */
 export function testVoice(voiceKey) {
-  const profile = VOICE_PROFILES[voiceKey] || VOICE_PROFILES.af_heart;
-  speakText(`Hello! This is ${profile.name}. Your speech engine is fully operational on ULTRON.`, { voiceKey, humanCompanion: true });
+  const profile = VOICE_PROFILES[voiceKey] || VOICE_PROFILES.ultron_prime;
+  speakText(`Greetings! I am Ultron. Speech synthesis core is fully operational and tuned for natural human cadence.`, { voiceKey, humanCompanion: false });
 }
