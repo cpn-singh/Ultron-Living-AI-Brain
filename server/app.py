@@ -1873,6 +1873,27 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                         "message": f"Failed to launch '{app_name}': {str(e)}"
                     })
 
+        elif parsed.path == '/api/open-url':
+            target_url = body.get('url', '').strip()
+            if not target_url:
+                self._send_json(400, {"success": False, "message": "No URL provided"})
+            else:
+                import webbrowser
+                try:
+                    # Opens URL directly in default browser on the PC host OS
+                    opened = webbrowser.open(target_url, new=2)
+                    self._send_json(200, {
+                        "success": True,
+                        "url": target_url,
+                        "message": f"Successfully launched {target_url} in host browser"
+                    })
+                except Exception as e:
+                    self._send_json(500, {
+                        "success": False,
+                        "url": target_url,
+                        "message": f"Failed to open URL: {str(e)}"
+                    })
+
         else:
             self._send_json(404, {"error": "Unknown Endpoint"})
 

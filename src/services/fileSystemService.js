@@ -122,6 +122,56 @@ export async function openFile(path) {
   return { success: true, message: `Opened ${path}` };
 }
 
+// ──────────────────────────── OPEN EXTERNAL URL ────────────────────────────
+
+/**
+ * Open an external URL safely across Electron, Local Python Host Engine, or Web Browser.
+ * Bypasses Chrome popup-blocker when Python server is active.
+ * @param {string} url - Target web URL
+ * @returns {Promise<{success: boolean, method: string}>}
+ */
+export async function openExternalUrl(url) {
+  if (!url) return { success: false, method: 'none' };
+
+  // 1. Electron Desktop IPC
+  if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+    try {
+      window.electronAPI.openExternal(url);
+      return { success: true, method: 'electron' };
+    } catch (e) {}
+  }
+
+  // 2. Python Backend Host OS Launcher (Direct OS shell execution)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+    const pyRes = await fetch('http://127.0.0.1:8000/api/open-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: controller.signal
+    }).catch(() => null);
+    clearTimeout(timeoutId);
+
+    if (pyRes && pyRes.ok) {
+      const data = await pyRes.json();
+      if (data.success) {
+        return { success: true, method: 'python-os' };
+      }
+    }
+  } catch (e) {}
+
+  // 3. Browser window.open
+  try {
+    if (typeof window !== 'undefined') {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (opened) return { success: true, method: 'window.open' };
+    }
+  } catch (e) {}
+
+  return { success: false, method: 'unopened' };
+}
+
 // ──────────────────────────── LAUNCH APP ────────────────────────────
 
 /**

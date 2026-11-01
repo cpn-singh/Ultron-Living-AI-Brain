@@ -4,7 +4,7 @@
  * Returns a structured command result object or string response.
  */
 
-import { createFile, createFolder, listDirectory, openFile, launchApp } from './fileSystemService';
+import { createFile, createFolder, listDirectory, openFile, launchApp, openExternalUrl } from './fileSystemService';
 import { executeMobileAppLaunchCommand } from './mobileAppLauncherService';
 
 // ──────────────────────────── INTENT PATTERNS ────────────────────────────
@@ -107,23 +107,23 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
   const playTarget = extract(text, PATTERNS.PLAY_MEDIA);
   if (playTarget) {
     const cleanMedia = playTarget
-      .replace(/\b(song|music|track|video|gana|gaana|on youtube|in youtube|youtube par)\b/gi, ' ')
+      .replace(/\b(from youtube|on youtube|in youtube|youtube par|youtube se|youtube|song|songs|music|track|video|videos|gana|gaana|geet|play|baja|bajao|suna|sunao)\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
     if (cleanMedia.length > 0) {
       const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanMedia)}`;
-      try {
-        if (typeof window !== 'undefined') {
-          window.open(ytUrl, '_blank', 'noopener,noreferrer');
-        }
-      } catch (e) {}
 
-      return fmt('🎵', 'Playing Media on YouTube', [
-        `**Query**: "${cleanMedia}"`,
-        `**Action**: Launched YouTube search & playback tab.`,
-        `Enjoy listening to **${cleanMedia}**.`
-      ]);
+      // 1. Proactively trigger external launch across Electron, Python OS shell, and browser
+      openExternalUrl(ytUrl);
+
+      // 2. Return interactive embedded player + direct clickable link
+      return `### 🎵 Playing Media on YouTube\n` +
+        `- **Query**: "${cleanMedia}"\n` +
+        `- **Status**: Streaming playback initialized.\n` +
+        `- Enjoy listening to **${cleanMedia}**.\n\n` +
+        `\`\`\`youtube\n${cleanMedia}\n\`\`\`\n\n` +
+        `[▶️ Click here to open "${cleanMedia}" on YouTube](${ytUrl})`;
     }
   }
 

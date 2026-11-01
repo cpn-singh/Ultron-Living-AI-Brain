@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Code, Play, Terminal, Eye, Loader2, X } from 'lucide-react';
+import { Copy, Check, Code, Play, Terminal, Eye, Loader2, X, ExternalLink } from 'lucide-react';
 
 export default function MarkdownRenderer({ content }) {
   if (!content) return null;
@@ -47,6 +47,12 @@ function CodeBlockItem({ language, code }) {
   const [showPreview, setShowPreview] = useState(false);
 
   const cleanLang = (language || 'code').toLowerCase().trim();
+
+  // Specialized Interactive Media Blocks
+  if (cleanLang === 'youtube') {
+    return <YouTubeEmbedBlock query={code} />;
+  }
+
   const canRun = ['javascript', 'js', 'python', 'py'].includes(cleanLang);
   const isHtml = cleanLang === 'html';
 
@@ -194,6 +200,74 @@ function CodeBlockItem({ language, code }) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function YouTubeEmbedBlock({ query }) {
+  const cleanQuery = (query || '').trim();
+  const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQuery)}`;
+  const embedUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanQuery)}&autoplay=1`;
+
+  const handleOpenExternal = () => {
+    if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
+      window.electronAPI.openExternal(ytSearchUrl);
+      return;
+    }
+    // Attempt local python host launch (launches in default browser without popup blocker)
+    fetch('http://127.0.0.1:8000/api/open-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: ytSearchUrl })
+    }).catch(() => {});
+
+    // Direct browser window open
+    try {
+      window.open(ytSearchUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {}
+  };
+
+  return (
+    <div className="my-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-b from-slate-900/95 via-slate-950/90 to-black p-3.5 shadow-2xl backdrop-blur-md flex flex-col gap-3">
+      <div className="flex items-center justify-between border-b border-cyan-900/40 pb-2">
+        <div className="flex items-center gap-2 text-cyan-300 font-semibold text-xs tracking-wide">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white shadow-md shadow-red-500/30">
+            ▶
+          </span>
+          <span>YouTube Music & Video Player</span>
+        </div>
+        <button
+          onClick={handleOpenExternal}
+          className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:text-white bg-cyan-950/70 hover:bg-cyan-800/60 border border-cyan-600/40 rounded-lg transition-all duration-200 cursor-pointer shadow-sm"
+          title="Open in new browser tab"
+        >
+          <ExternalLink className="w-3 h-3 text-cyan-400" />
+          <span>Open Full Tab</span>
+        </button>
+      </div>
+
+      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-cyan-950 bg-black shadow-inner">
+        <iframe
+          src={embedUrl}
+          title={`YouTube Player - ${cleanQuery}`}
+          className="w-full h-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 text-[11px] text-slate-300">
+        <span className="truncate max-w-[240px] font-mono text-cyan-200/90 text-xs">
+          Now playing: <strong className="text-white font-semibold">"{cleanQuery}"</strong>
+        </span>
+        <button
+          onClick={handleOpenExternal}
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold text-xs shadow-lg shadow-red-900/40 transition-transform active:scale-95 cursor-pointer"
+        >
+          <Play className="w-3.5 h-3.5 fill-current" />
+          <span>Launch on YouTube</span>
+        </button>
+      </div>
     </div>
   );
 }
