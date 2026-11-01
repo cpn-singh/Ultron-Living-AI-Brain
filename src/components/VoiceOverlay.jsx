@@ -218,7 +218,7 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
 
           {/* Live Transcript / Speech Indicator */}
           <p className="text-sm text-white/95 font-normal leading-relaxed">
-            {partialText ? partialText : 'Listening, speak now...'}
+            {partialText ? partialText.replace(/^["'\s]+|["'\s]+$/g, '') : 'Listening, speak now...'}
             <span className="inline-block w-0.5 h-4 ml-0.5 bg-cyan-400 animate-pulse align-text-bottom" />
           </p>
         </div>
@@ -292,7 +292,7 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
               {isSpeaking ? (
                 <Volume2 className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold animate-bounce" />
               ) : isListening ? (
-                <MicOff className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold" />
+                <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold animate-pulse" />
               ) : (
                 <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950 font-bold" />
               )}

@@ -12,7 +12,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 
 const MIC_STATES = { idle: 'idle', ready: 'ready', listening: 'listening', processing: 'processing' };
 
-export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, speechTriggerText }) {
+export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, speechTriggerText, onClearSpeechTrigger }) {
   const activeBotObj = BOTS.find(b => b.id === activeAgent) || BOTS[0];
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -131,12 +131,26 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     if (
       speechTriggerText &&
       speechTriggerText.text &&
+      Date.now() - speechTriggerText.ts < 5000 &&
       speechTriggerText.ts !== processedSpeechTsRef.current
     ) {
       processedSpeechTsRef.current = speechTriggerText.ts;
-      handleSend(speechTriggerText.text);
+      const textToSend = speechTriggerText.text;
+      if (onClearSpeechTrigger) {
+        onClearSpeechTrigger();
+      }
+      handleSend(textToSend);
     }
-  }, [speechTriggerText, handleSend]);
+  }, [speechTriggerText, handleSend, onClearSpeechTrigger]);
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+      if (onClearSpeechTrigger) {
+        onClearSpeechTrigger();
+      }
+    };
+  }, [onClearSpeechTrigger]);
 
   const handleVoice = useCallback(async () => {
     if (micState !== MIC_STATES.idle) {
@@ -160,8 +174,11 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     if (transcript && transcript.trim()) {
       setInput('');
       await handleSend(transcript);
-    } else if (error && error !== 'No speech match found') {
-      addMessage('ULTRON', `🎤 Voice error: ${error}\n\nTip: Ensure offline voice model is downloaded in Settings.`, activeBotObj.name);
+    } else if (error && error !== 'No speech match found' && error !== 'no-speech' && error !== 'aborted') {
+      console.warn('[ChatDrawer] Voice input ended:', error);
+      if (error === 'Microphone permission denied') {
+        addMessage('ULTRON', `🎤 Microphone permission was denied. Please allow microphone access in your browser to use voice input.`, activeBotObj.name);
+      }
     }
   }, [micState, activeBotObj.name, handleSend, addMessage]);
 
@@ -199,6 +216,10 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   };
 
   const handleClose = () => {
+    stopSpeech();
+    if (onClearSpeechTrigger) {
+      onClearSpeechTrigger();
+    }
     setIsMinimized(true);
     if (onSwitchTab) onSwitchTab(null);
   };

@@ -90,6 +90,13 @@ if (synth) {
   }
 }
 
+// Global listener for voice barge-in interruption events
+if (typeof window !== 'undefined') {
+  window.addEventListener('ultron-speaking-stop', () => {
+    stopSpeech();
+  });
+}
+
 /**
  * Returns true if Ultron is currently speaking through the speakers.
  */

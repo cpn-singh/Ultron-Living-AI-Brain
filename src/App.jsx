@@ -31,6 +31,13 @@ export default function App() {
     return () => window.removeEventListener('toggle-fleet-sidebar', handleToggle);
   }, []);
 
+  const handleTabSwitch = (tab) => {
+    if (tab !== 'chat') {
+      setSpeechTriggerText(null);
+    }
+    setActiveTab(tab);
+  };
+
   const handleSpeechResult = (text) => {
     if (text && text.trim()) {
       setSpeechTriggerText({ text: text.trim(), ts: Date.now() });
@@ -194,15 +201,16 @@ export default function App() {
         <ChatDrawer 
           activeAgent={activeAgent} 
           setActiveAgent={setActiveAgent}
-          onSwitchTab={setActiveTab} 
+          onSwitchTab={handleTabSwitch} 
           speechTriggerText={speechTriggerText} 
+          onClearSpeechTrigger={() => setSpeechTriggerText(null)}
         />
       )}
 
       {/* Central Floating Dock Bar */}
       <BotDockBar 
         activeTab={activeTab}
-        setActiveTab={setActiveTab} 
+        setActiveTab={handleTabSwitch} 
         onLaunchCodeSwarm={handleLaunchCodeSwarm}
       />
 
