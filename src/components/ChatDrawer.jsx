@@ -11,7 +11,53 @@ import { BOTS } from '../data/botsData';
 import MarkdownRenderer from './MarkdownRenderer';
 
 const MIC_STATES = { idle: 'idle', ready: 'ready', listening: 'listening', processing: 'processing' };
-let lastGlobalProcessedSpeechTs = 0;
+let lastGlobalProcessedSpeechTs = Date.now();
+
+/**
+ * Intelligent narration policy router:
+ * - Directly starts music/media with ZERO speech narration.
+ * - Suppresses voice for silent operational commands (switching tabs, opening apps, file creation).
+ * - Speaks aloud ONLY when the user asks a question, requests information, or explicitly asks for narration.
+ */
+function shouldNarrateResponse(userPrompt, botReply) {
+  if (!userPrompt) return false;
+  const prompt = userPrompt.toLowerCase().trim();
+  const reply = (botReply || '').toLowerCase();
+
+  // 1. Explicitly requested narration ("narrate this", "speak result", "bol ke batao", "sunao")
+  const isExplicitNarration = /\b(narrate|speak|read|read aloud|read out|voice|bol ke|bolke|sunao|awaz me|padh ke|tell me aloud)\b/i.test(prompt);
+  if (isExplicitNarration) return true;
+
+  // 2. NEVER narrate music/media playback (directly start music without chat screen narration)
+  const isMusicAction = 
+    /^(?:play|start|baja|bajao|suna|sunao|pause|resume|stop|halt|next|prev|skip)\b/i.test(prompt) ||
+    /\b(song|songs|music|track|gana|gaana|geet|beats?|mashup)\b/i.test(prompt);
+  const isMusicReply = 
+    reply.includes('ultron music player') || 
+    reply.includes('playing media') || 
+    reply.includes('direct music playback active') ||
+    reply.includes('music paused') ||
+    reply.includes('music resumed');
+  if (isMusicAction || isMusicReply) {
+    return false;
+  }
+
+  // 3. Silent system / tool commands (open software, switch tab, create file)
+  const isSilentCommand = /^(?:open|launch|switch to|create file|create folder|delete file|list files)\b/i.test(prompt);
+  if (isSilentCommand) {
+    return false;
+  }
+
+  // 4. Questions or conversational inquiries ("use narration when i ask something")
+  const isQuestion = 
+    prompt.includes('?') ||
+    /\b(who|what|where|when|why|how|which|whose|whom|can you|could you|explain|describe|tell me|meaning|difference|details|search|find|give me)\b/i.test(prompt) ||
+    /\b(kya|kaise|kyun|kyu|kaun|kidhar|kahan|kab|batao|samjhao|bata|bataiye|dikhao)\b/i.test(prompt) ||
+    /^(?:hello|hi|hey|greetings|namaste|suno|arre)\b/i.test(prompt) ||
+    /\b(joke|fact|trivia|help)\b/i.test(prompt);
+
+  return isQuestion;
+}
 
 export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, speechTriggerText, onClearSpeechTrigger }) {
   const activeBotObj = BOTS.find(b => b.id === activeAgent) || BOTS[0];
@@ -25,8 +71,16 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Filter out legacy error artifacts from previous versions
-          const cleaned = parsed.filter(m => 
+          // Filter out legacy error artifacts and strip legacy youtube blocks from past music queries
+          const cleaned = parsed.map(m => {
+            if (typeof m.text === 'string' && m.text.includes('```youtube')) {
+              return {
+                ...m,
+                text: m.text.replace(/```youtube[\s\S]*?```/g, '').replace(/\[▶️ Click here to open.*?\]\(.*?\)/g, '').trim()
+              };
+            }
+            return m;
+          }).filter(m => 
             !m.text?.includes('Speech-to-text service is unavailable') &&
             !m.text?.includes('offline voice model') &&
             !m.text?.includes('Voice error:')
@@ -124,9 +178,10 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       const reply = response || 'Command executed.';
       addMessage('ULTRON', reply, activeBotNameRef.current);
 
-      // Speak response using high-definition natural voice if voice output is enabled
+      // Speak response using high-definition natural voice only when appropriate (questions/explicit requests)
+      // Directly start music without chat screen narration
       const ttsEnabled = localStorage.getItem('ultron_tts_enabled') !== 'false';
-      if (ttsEnabled) {
+      if (ttsEnabled && shouldNarrateResponse(userText, reply)) {
         speakText(reply, { isAutoSpoken: true });
       }
     } catch (err) {
@@ -169,7 +224,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       speechTriggerText.text &&
       speechTriggerText.ts &&
       speechTriggerText.ts > lastGlobalProcessedSpeechTs &&
-      Date.now() - speechTriggerText.ts < 6000
+      Date.now() - speechTriggerText.ts < 3500
     ) {
       lastGlobalProcessedSpeechTs = speechTriggerText.ts;
       const textToSend = speechTriggerText.text;
@@ -180,7 +235,9 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     }
   }, [speechTriggerText, handleSend, onClearSpeechTrigger]);
 
+  // Cleanly stop any ongoing speech when drawer mounts or unmounts to prevent re-speaking old queries
   useEffect(() => {
+    stopSpeech();
     return () => {
       stopSpeech();
       if (onClearSpeechTrigger) {

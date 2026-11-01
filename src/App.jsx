@@ -12,6 +12,8 @@ import VoiceOverlay from './components/VoiceOverlay';
 import AuthModal from './components/AuthModal';
 import BotDockBar from './components/BotDockBar';
 import BenchmarkPanel from './components/BenchmarkPanel';
+import MusicPlayer from './components/MusicPlayer';
+import { stopSpeech } from './services/voiceTtsService';
 import { 
   ZoomIn, ZoomOut, RotateCcw, Compass, ChevronRight, ChevronLeft, X 
 } from 'lucide-react';
@@ -34,6 +36,7 @@ export default function App() {
   const handleTabSwitch = useCallback((tab) => {
     if (tab !== 'chat') {
       setSpeechTriggerText(null);
+      stopSpeech();
     }
     setActiveTab(tab);
   }, []);
@@ -220,6 +223,9 @@ export default function App() {
 
       {/* Floating Microphone Action Button & Equalizer Overlay */}
       <VoiceOverlay activeTab={activeTab} onSpeechResult={handleSpeechResult} />
+
+      {/* Global Interactive Music Player */}
+      <MusicPlayer />
 
       {/* Settings & Auth Modals */}
       {showSettings && (

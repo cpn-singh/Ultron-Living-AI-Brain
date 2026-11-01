@@ -1,5 +1,6 @@
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { safeFetchPost } from './safeFetchService';
+import { musicPlayer } from './musicPlayerService';
 
 // Register native plugin for Capacitor mobile
 const UltronVoice = registerPlugin('UltronVoice', {
@@ -229,6 +230,16 @@ class UltronContinuousVoiceEngine {
 
   setState(newState) {
     this.state = newState;
+
+    // Intelligent Audio Ducking: lowers music volume when listening to user
+    try {
+      if (newState === 'listening' && musicPlayer.state.isPlaying) {
+        musicPlayer.setVolume(0.2);
+      } else if (newState === 'idle' && musicPlayer.state.isPlaying) {
+        musicPlayer.setVolume(0.85);
+      }
+    } catch (e) {}
+
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(newState);
     }

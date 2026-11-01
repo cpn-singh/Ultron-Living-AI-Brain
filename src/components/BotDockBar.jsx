@@ -1,7 +1,14 @@
-import React from 'react';
-import { TrendingUp, Code2, Layers, MessageSquare, Sparkles, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, Code2, Layers, MessageSquare, Sparkles, ExternalLink, Music } from 'lucide-react';
+import { musicPlayer } from '../services/musicPlayerService';
 
 export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm }) {
+  const [isPlaying, setIsPlaying] = useState(musicPlayer.state.isPlaying);
+
+  useEffect(() => {
+    return musicPlayer.subscribe((st) => setIsPlaying(st.isPlaying));
+  }, []);
+
   return (
     <div className={`fixed bottom-4 sm:bottom-6 inset-x-0 z-30 flex-col items-center gap-2.5 pointer-events-none px-2 sm:px-4 select-none ${
       activeTab === 'chat' ? 'hidden sm:flex' : 'flex'
@@ -50,6 +57,27 @@ export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm 
         >
           <Layers className="w-3.5 h-3.5 text-purple-400" />
           <span className="hidden sm:inline">Swarm Cards</span>
+        </button>
+
+        {/* Music Player Direct Trigger Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (musicPlayer.state.isOpen) {
+              musicPlayer.togglePlay();
+            } else {
+              musicPlayer.playSong('');
+            }
+          }}
+          className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+            isPlaying
+              ? 'text-white bg-cyan-500/30 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] animate-pulse'
+              : 'text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-cyan-900/40 border-cyan-800/40'
+          }`}
+          title="Play Music in ULTRON Player"
+        >
+          <Music className={`w-3.5 h-3.5 ${isPlaying ? 'text-cyan-300 animate-spin' : 'text-cyan-400'}`} style={{ animationDuration: '4s' }} />
+          <span className="hidden sm:inline">Music</span>
         </button>
 
         {/* Chat Drawer Trigger Button */}

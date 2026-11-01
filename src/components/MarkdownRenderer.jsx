@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Copy, Check, Code, Play, Terminal, Eye, Loader2, X, ExternalLink } from 'lucide-react';
 
 export default function MarkdownRenderer({ content }) {
@@ -207,25 +207,71 @@ function CodeBlockItem({ language, code }) {
 function YouTubeEmbedBlock({ query }) {
   const cleanQuery = (query || '').trim();
   const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQuery)}`;
-  const embedUrl = `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanQuery)}&autoplay=1`;
+  const [videoId, setVideoId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Global audio arbitration: stop chat video if music player starts or all audio is paused
+  useEffect(() => {
+    const handleStop = () => setIsPlaying(false);
+    window.addEventListener('ultron-pause-chat-video', handleStop);
+    window.addEventListener('ultron-stop-all-audio', handleStop);
+    return () => {
+      window.removeEventListener('ultron-pause-chat-video', handleStop);
+      window.removeEventListener('ultron-stop-all-audio', handleStop);
+    };
+  }, []);
+
+  const handleStartPlay = async () => {
+    // 1. Immediately pause floating music player and any other active audio
+    window.dispatchEvent(new CustomEvent('ultron-stop-all-audio'));
+    setIsPlaying(true);
+
+    if (!videoId) {
+      setLoading(true);
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/yt-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: cleanQuery })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.videoId) {
+            setVideoId(data.videoId);
+          }
+        }
+      } catch (err) {
+        console.warn('[YouTubeEmbedBlock] Failed to resolve video:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
+  };
 
   const handleOpenExternal = () => {
     if (window.electronAPI && typeof window.electronAPI.openExternal === 'function') {
       window.electronAPI.openExternal(ytSearchUrl);
       return;
     }
-    // Attempt local python host launch (launches in default browser without popup blocker)
     fetch('http://127.0.0.1:8000/api/open-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: ytSearchUrl })
     }).catch(() => {});
 
-    // Direct browser window open
     try {
       window.open(ytSearchUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {}
   };
+
+  const embedUrl = videoId
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1`
+    : null;
 
   return (
     <div className="my-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-b from-slate-900/95 via-slate-950/90 to-black p-3.5 shadow-2xl backdrop-blur-md flex flex-col gap-3">
@@ -234,37 +280,85 @@ function YouTubeEmbedBlock({ query }) {
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white shadow-md shadow-red-500/30">
             ▶
           </span>
-          <span>YouTube Music & Video Player</span>
+          <span>YouTube Video Player</span>
         </div>
-        <button
-          onClick={handleOpenExternal}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:text-white bg-cyan-950/70 hover:bg-cyan-800/60 border border-cyan-600/40 rounded-lg transition-all duration-200 cursor-pointer shadow-sm"
-          title="Open in new browser tab"
-        >
-          <ExternalLink className="w-3 h-3 text-cyan-400" />
-          <span>Open Full Tab</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {isPlaying && (
+            <button
+              onClick={handlePause}
+              className="px-2 py-0.5 text-[10px] font-mono text-cyan-300 hover:text-white bg-slate-900 border border-cyan-800 rounded cursor-pointer"
+            >
+              Pause
+            </button>
+          )}
+          <button
+            onClick={handleOpenExternal}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:text-white bg-cyan-950/70 hover:bg-cyan-800/60 border border-cyan-600/40 rounded-lg transition-all duration-200 cursor-pointer shadow-sm"
+            title="Open in new browser tab"
+          >
+            <ExternalLink className="w-3 h-3 text-cyan-400" />
+            <span>Open Full Tab</span>
+          </button>
+        </div>
       </div>
 
-      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-cyan-950 bg-black shadow-inner">
-        <iframe
-          src={embedUrl}
-          title={`YouTube Player - ${cleanQuery}`}
-          className="w-full h-full border-0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
+      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-cyan-950 bg-black shadow-inner flex items-center justify-center">
+        {isPlaying ? (
+          loading ? (
+            <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
+              <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+              <span className="text-xs font-mono text-cyan-200">
+                Locating video stream for "{cleanQuery}"...
+              </span>
+            </div>
+          ) : embedUrl ? (
+            <iframe
+              src={embedUrl}
+              title={`YouTube Player - ${cleanQuery}`}
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2.5 p-6 text-center">
+              <p className="text-xs text-slate-300">
+                Video link ready for <strong>"{cleanQuery}"</strong>
+              </p>
+              <button
+                onClick={handleOpenExternal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-md cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Watch on YouTube</span>
+              </button>
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 p-6 text-center bg-gradient-to-b from-slate-900/60 to-black/90 w-full h-full">
+            <span className="text-xs text-slate-300 font-medium">
+              Video ready: <strong className="text-white">"{cleanQuery}"</strong>
+            </span>
+            <button
+              onClick={handleStartPlay}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-lg shadow-red-900/50 transition-all transform active:scale-95 cursor-pointer"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>Play Video</span>
+            </button>
+            <span className="text-[10px] text-white/40">Click to start playback</span>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 text-[11px] text-slate-300">
         <span className="truncate max-w-[240px] font-mono text-cyan-200/90 text-xs">
-          Now playing: <strong className="text-white font-semibold">"{cleanQuery}"</strong>
+          Target: <strong className="text-white font-semibold">"{cleanQuery}"</strong>
         </span>
         <button
           onClick={handleOpenExternal}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold text-xs shadow-lg shadow-red-900/40 transition-transform active:scale-95 cursor-pointer"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-cyan-300 hover:text-white border border-cyan-800/50 font-semibold text-xs transition-colors cursor-pointer"
         >
-          <Play className="w-3.5 h-3.5 fill-current" />
+          <ExternalLink className="w-3.5 h-3.5" />
           <span>Launch on YouTube</span>
         </button>
       </div>

@@ -6,6 +6,7 @@
 
 import { createFile, createFolder, listDirectory, openFile, launchApp, openExternalUrl } from './fileSystemService';
 import { executeMobileAppLaunchCommand } from './mobileAppLauncherService';
+import { musicPlayer } from './musicPlayerService';
 
 // ──────────────────────────── INTENT PATTERNS ────────────────────────────
 
@@ -41,7 +42,24 @@ const PATTERNS = {
     /(?:switch\s+to|open|show|go\s+to)\s+(?:the\s+)?(chat|swarm|files|file\s+manager|memory|knowledge)(?:\s+tab|\s+panel)?/i
   ],
 
-  // Media / YouTube playback: "play Kasa song by Honey Singh", "play despacito", "suna koi gaana"
+  // Generic direct music playback: "play song", "play music", "gana bajao", "suna koi gana"
+  PLAY_GENERIC_MUSIC: [
+    /^(?:play|start|baja|bajao|suna|sunao)\s+(?:a\s+)?(?:song|music|track|gaana|gana|geet|beats?)$/i,
+    /^(?:play|start)\s+(?:some\s+)?(?:music|songs?)$/i,
+    /^(?:suna|sunao)\s+(?:koi\s+)?(?:gaana|gana|geet|song)$/i,
+    /^(?:gaana|gana|music|song)\s+(?:bajao|baja|chalao|chala)$/i,
+    /^(?:play\s+song|play\s+music)$/i
+  ],
+
+  // Music playback controls: "pause music", "stop song", "resume music", "next song"
+  CONTROL_MUSIC: [
+    /^(?:pause|stop|halt)\s+(?:the\s+)?(?:music|song|playback|audio|track)$/i,
+    /^(?:resume|unpause|continue)\s+(?:the\s+)?(?:music|song|playback|audio|track)$/i,
+    /^(?:next|skip)\s+(?:song|track|music)$/i,
+    /^(?:prev|previous)\s+(?:song|track|music)$/i
+  ],
+
+  // Specific Media / YouTube playback: "play Kas ka song", "play despacito", "play Honey Singh"
   PLAY_MEDIA: [
     /(?:play|baja|bajao|suna|sunao)\s+(?:a\s+)?(?:song|video|music|track|gaana|gana)?\s*(?:called\s+|named\s+)?(.+)/i,
     /(?:play|baja|bajao)\s+(.+)/i
@@ -103,27 +121,84 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
     ]);
   }
 
-  // ── PLAY MEDIA / MUSIC / YOUTUBE ──
+  // ── MUSIC PLAYBACK CONTROLS (Pause / Resume / Next / Prev) ──
+  if (testAny(text, PATTERNS.CONTROL_MUSIC)) {
+    if (/pause|stop|halt/i.test(text)) {
+      musicPlayer.pause();
+      return fmt('⏸️', 'Music Paused', [
+        'ULTRON Music Player paused.',
+        'Say **"resume music"** or **"play song"** to continue.'
+      ]);
+    }
+    if (/resume|unpause|continue/i.test(text)) {
+      musicPlayer.resume();
+      return fmt('▶️', 'Music Resumed', [
+        'ULTRON Music Player resumed playback.'
+      ]);
+    }
+    if (/next|skip/i.test(text)) {
+      musicPlayer.next();
+      return fmt('⏭️', 'Next Track', [
+        'Playing next track in ULTRON Music Player.'
+      ]);
+    }
+    if (/prev|previous/i.test(text)) {
+      musicPlayer.prev();
+      return fmt('⏮️', 'Previous Track', [
+        'Playing previous track in ULTRON Music Player.'
+      ]);
+    }
+  }
+
+  // ── GENERIC DIRECT PLAY SONG / MUSIC ──
+  if (testAny(text, PATTERNS.PLAY_GENERIC_MUSIC)) {
+    const track = await musicPlayer.playSong('');
+    return fmt('🎵', 'Direct Music Playback Active', [
+      `**Track**: "${track.title}"`,
+      `**Artist**: ${track.artist} (${track.genre})`,
+      `**Status**: Playing directly in the ULTRON Music Player on your screen.`
+    ]);
+  }
+
+  // ── SPECIFIC PLAY MEDIA / YOUTUBE STREAM ──
   const playTarget = extract(text, PATTERNS.PLAY_MEDIA);
   if (playTarget) {
+    // Check if user specifically requested VIDEO
+    const isVideoRequested = /\b(video|videos|visual|watch|dekhna|dekho|video song|music video|clip)\b/i.test(text);
+
     const cleanMedia = playTarget
-      .replace(/\b(from youtube|on youtube|in youtube|youtube par|youtube se|youtube|song|songs|music|track|video|videos|gana|gaana|geet|play|baja|bajao|suna|sunao)\b/gi, ' ')
+      .replace(/\b(from youtube|on youtube|in youtube|youtube par|youtube se|youtube|video|videos|song|songs|music|track|gana|gaana|geet|play|baja|bajao|suna|sunao)\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
     if (cleanMedia.length > 0) {
       const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanMedia)}`;
 
-      // 1. Proactively trigger external launch across Electron, Python OS shell, and browser
-      openExternalUrl(ytUrl);
+      if (isVideoRequested) {
+        // Explicit video request: render embedded video player in chat + launch stream
+        musicPlayer.playSong(cleanMedia, { isVideo: true });
 
-      // 2. Return interactive embedded player + direct clickable link
-      return `### 🎵 Playing Media on YouTube\n` +
-        `- **Query**: "${cleanMedia}"\n` +
-        `- **Status**: Streaming playback initialized.\n` +
-        `- Enjoy listening to **${cleanMedia}**.\n\n` +
-        `\`\`\`youtube\n${cleanMedia}\n\`\`\`\n\n` +
-        `[▶️ Click here to open "${cleanMedia}" on YouTube](${ytUrl})`;
+        return `### 🎬 Playing Video\n` +
+          `- **Query**: "${cleanMedia}"\n` +
+          `- **Source**: YouTube Video Stream\n\n` +
+          `\`\`\`youtube\n${cleanMedia}\n\`\`\`\n\n` +
+          `[▶️ Open "${cleanMedia}" on YouTube](${ytUrl})`;
+      } else {
+        // Music request: ONLY play in ULTRON Music Player, NOT in chat screen!
+        musicPlayer.playSong(cleanMedia, { isVideo: false });
+
+        return `### 🎵 ULTRON Music Player\n` +
+          `- **Playing**: "${cleanMedia}"\n` +
+          `- **Output**: Playing directly in the ULTRON Music Player.`;
+      }
+    } else {
+      // If stripped query was empty (e.g. user said "play a song"), play generic stream directly!
+      const track = await musicPlayer.playSong('', { isVideo: false });
+      return fmt('🎵', 'Direct Music Playback Active', [
+        `**Track**: "${track.title}"`,
+        `**Artist**: ${track.artist}`,
+        `**Status**: Playing directly in the ULTRON Music Player.`
+      ]);
     }
   }
 

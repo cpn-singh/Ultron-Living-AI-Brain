@@ -1894,6 +1894,42 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                         "message": f"Failed to open URL: {str(e)}"
                     })
 
+        elif parsed.path == '/api/yt-search':
+            query = body.get('query', '').strip()
+            if not query:
+                self._send_json(400, {"success": False, "message": "No query provided"})
+            else:
+                try:
+                    import urllib.request, urllib.parse, re
+                    encoded_q = urllib.parse.quote_plus(query)
+                    yt_url = f"https://www.youtube.com/results?search_query={encoded_q}"
+                    req = urllib.request.Request(yt_url, headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    })
+                    context = ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, context=context, timeout=5) as resp:
+                        raw_html = resp.read().decode('utf-8', errors='ignore')
+
+                    ids = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', raw_html)
+                    if not ids:
+                        ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', raw_html)
+
+                    unique_ids = list(dict.fromkeys(ids))
+                    top_id = unique_ids[0] if unique_ids else None
+
+                    if top_id:
+                        self._send_json(200, {
+                            "success": True,
+                            "query": query,
+                            "videoId": top_id,
+                            "embedUrl": f"https://www.youtube-nocookie.com/embed/{top_id}?autoplay=1&enablejsapi=1",
+                            "watchUrl": f"https://www.youtube.com/watch?v={top_id}"
+                        })
+                    else:
+                        self._send_json(404, {"success": False, "message": "No video found"})
+                except Exception as e:
+                    self._send_json(500, {"success": False, "message": str(e)})
+
         else:
             self._send_json(404, {"error": "Unknown Endpoint"})
 
