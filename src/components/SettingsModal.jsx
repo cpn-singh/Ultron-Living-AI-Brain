@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User } from 'lucide-react';
+import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User, Globe } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
 
@@ -17,6 +17,8 @@ export default function SettingsModal({ onClose }) {
   const [selectedVoice, setSelectedVoice] = useState(() => localStorage.getItem('ultron_tts_voice') || 'af_heart');
   const [voiceSpeed, setVoiceSpeed] = useState(() => localStorage.getItem('ultron_voice_speed') || '1.0');
   const [humanCompanion, setHumanCompanion] = useState(() => localStorage.getItem('ultron_human_companion') !== 'false');
+  const [wakeWord, setWakeWord] = useState(() => localStorage.getItem('ultron_wake_word') !== 'false');
+  const [speechLang, setSpeechLang] = useState(() => localStorage.getItem('ultron_speech_lang') || 'en-IN');
   const [statusMsg, setStatusMsg] = useState('');
   const [nvidiaTesting, setNvidiaTesting] = useState(false);
   const [nvidiaStatus, setNvidiaStatus] = useState('');
@@ -30,6 +32,10 @@ export default function SettingsModal({ onClose }) {
     localStorage.setItem('ultron_tts_voice', selectedVoice);
     localStorage.setItem('ultron_voice_speed', voiceSpeed);
     localStorage.setItem('ultron_human_companion', humanCompanion ? 'true' : 'false');
+    localStorage.setItem('ultron_wake_word', wakeWord ? 'true' : 'false');
+    localStorage.setItem('ultron_speech_lang', speechLang);
+    window.dispatchEvent(new CustomEvent('ultron-wake-word-toggle', { detail: { enabled: wakeWord } }));
+    window.dispatchEvent(new CustomEvent('ultron-speech-lang-change', { detail: { lang: speechLang } }));
     
     window.dispatchEvent(new CustomEvent('ultron-name-update', { detail: { name: cleanName } }));
     setStatusMsg('Settings & Orbit identity updated!');
@@ -261,6 +267,56 @@ export default function SettingsModal({ onClose }) {
               humanCompanion ? 'translate-x-5' : 'translate-x-0'
             }`} />
           </button>
+        </div>
+
+        {/* HEY ULTRON WAKE WORD DETECTION Toggle */}
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+              <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> "HEY ULTRON" WAKE WORD DETECTION
+            </div>
+            <div className="text-[10px] text-slate-400">Say "Hey Ultron" or "Ultron" anytime to immediately activate voice listening</div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const nextVal = !wakeWord;
+              setWakeWord(nextVal);
+              localStorage.setItem('ultron_wake_word', nextVal ? 'true' : 'false');
+              window.dispatchEvent(new CustomEvent('ultron-wake-word-toggle', { detail: { enabled: nextVal } }));
+            }}
+            className={`w-11 h-6 rounded-full p-1 transition-all duration-300 ${
+              wakeWord ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'
+            }`}
+          >
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+              wakeWord ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+
+        {/* VOICE INPUT ACCENT & LANGUAGE */}
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-2">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+            <span className="flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-cyan-400" /> SPEECH RECOGNITION ACCENT & LANGUAGE
+            </span>
+            <span className="text-[10px] text-emerald-400 font-mono">Indian English Default</span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed">
+            Optimized for Indian English accents, Hinglish (mixed Hindi-English), and Hindi recognition.
+          </p>
+          <select
+            value={speechLang}
+            onChange={(e) => setSpeechLang(e.target.value)}
+            className="w-full bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-sans"
+          >
+            <option value="en-IN">🇮🇳 English (India) — Indian Accents & Hinglish (Recommended)</option>
+            <option value="hi-IN">🇮🇳 हिन्दी (Hindi - India)</option>
+            <option value="en-US">🇺🇸 English (United States)</option>
+            <option value="en-GB">🇬🇧 English (United Kingdom)</option>
+          </select>
         </div>
 
         {/* Action Buttons */}

@@ -153,7 +153,7 @@ async function startMediaRecorderFallback(onStatus, onPartial) {
       mediaRecorder = recorder;
 
       if (onStatus) onStatus('listening');
-      if (onPartial) onPartial('Listening... speak into your microphone 🎙️');
+      if (onPartial) onPartial('Listening...');
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunks.push(e.data);
@@ -192,7 +192,7 @@ async function startMediaRecorderFallback(onStatus, onPartial) {
             if (avg > 6) {
               speechDetected = true;
               silenceStart = null;
-              if (onPartial) onPartial('Voice detected 🎙️ Listening...');
+              if (onPartial) onPartial('Listening...');
             } else if (speechDetected) {
               if (!silenceStart) silenceStart = Date.now();
               else if (Date.now() - silenceStart > 2500) {
@@ -314,7 +314,7 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
-        recognition.lang = 'en-US';
+        recognition.lang = getSpeechLanguage();
 
         let accumulatedTranscript = '';
         let lastSpeechTime = Date.now();
@@ -322,7 +322,7 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
 
         recognition.onstart = () => {
           if (onStatus) onStatus('listening');
-          if (onPartial) onPartial('Listening... speak into your microphone');
+          if (onPartial) onPartial('Listening...');
 
           silenceTimer = setInterval(() => {
             if (Date.now() - lastSpeechTime > 8000) {
@@ -474,4 +474,453 @@ export async function stopVoiceRecognition() {
   if (Capacitor.isNativePlatform()) {
     try { await UltronVoice.stopListening(); } catch {}
   }
+}
+
+
+/**
+ * Synthesizes a futuristic two-tone confirmation chime using Web Audio API
+ */
+let sharedAudioCtx = null;
+function getAudioContext() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function playWakeChime() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Tone 1: 587.33 Hz (D5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.15, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.16);
+
+    // Tone 2: 880 Hz (A5)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.08);
+    gain2.gain.setValueAtTime(0.18, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.28);
+  } catch (e) {
+    // Non-blocking audio fallback
+  }
+}
+
+/**
+ * Get configured speech recognition language (default: 'en-IN' for Indian English & Hinglish)
+ */
+export function getSpeechLanguage() {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem('ultron_speech_lang') || 'en-IN';
+  }
+  return 'en-IN';
+}
+
+export function setSpeechLanguage(langCode) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('ultron_speech_lang', langCode);
+    window.dispatchEvent(new CustomEvent('ultron-speech-lang-change', { detail: { lang: langCode } }));
+  }
+}
+
+/**
+ * Broad multilingual phonetic regex supporting:
+ * - Indian English & accents: "hey ultron", "ultron", "ultra", "altron", "aaltron", "eltron", "oltron", "all tron", "old tron", "haltron"
+ * - Hinglish prefixes: "arre ultron", "arey ultron", "suno ultron", "sun ultron", "bhai ultron", "oye ultron", "namaste ultron"
+ * - Hindi (Devanagari): "हे अल्ट्रॉन", "अरे अल्ट्रॉन", "सुनो अल्ट्रॉन", "अल्ट्रॉन", "अल्ट्रा", "अलट्रान", "अलट्रोन", "नमस्ते अल्ट्रॉन"
+ */
+export const WAKE_WORD_REGEX = new RegExp(
+  '(?:' +
+    '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste)?\\s*' +
+    '(?:ultron|altron|aaltron|ultra|eltron|oltron|all\\s*tron|old\\s*tron|haltron|ultran|altran)\\b' +
+  ')|' +
+  '(?:' +
+    '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?\\s*' +
+    '(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन)' +
+  ')',
+  'i'
+);
+
+/**
+ * Extracts voice command following the wake word (in English, Indian English, Hinglish, or Hindi).
+ * e.g. "Hey Ultron what is the time" -> "what is the time"
+ * e.g. "Suno Ultron aaj ka weather kaisa hai" -> "aaj ka weather kaisa hai"
+ * e.g. "अरे अल्ट्रॉन भारत की राजधानी क्या है" -> "भारत की राजधानी क्या है"
+ */
+export function extractCommandAfterWakeWord(text) {
+  if (!text) return '';
+  return text
+    .replace(
+      new RegExp(
+        '^.*?(?:' +
+          '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste)?\\s*(?:ultron|altron|aaltron|ultra|eltron|oltron|all\\s*tron|old\\s*tron|haltron|ultran|altran)\\b' +
+        '|' +
+          '(?:हे|अरे|सुनो|सुन|भाई|ओ|नमस्ते)?\\s*(?:अल्ट्रॉन|अल्ट्रोन|अल्ट्रा|अलट्रान|अलट्रॉन|ओल्ट्रॉन|एलट्रॉन)' +
+        ')[,.:;!\\-\\s]*',
+        'i'
+      ),
+      ''
+    )
+    .trim();
+}
+
+/**
+ * UNIFIED ULTRON SPEECH & WAKE WORD ENGINE
+ * Maintains an active persistent MediaStream so Chrome keeps the microphone hot,
+ * runs continuous background listening for "Hey Ultron" / "Ultron",
+ * plays the wake chime, captures the voice command, and submits it to AI.
+ */
+class UltronContinuousVoiceEngine {
+  constructor() {
+    this.recognition = null;
+    this.mediaStream = null;
+    this.state = 'idle'; // 'idle' | 'listening' | 'processing'
+    this.isEnabled = true;
+    this.isActive = false;
+    this.callbacks = {};
+    this.silenceTimer = null;
+    this.hardSafetyTimer = null;
+    this.restartTimer = null;
+    this.currentCommandText = '';
+    this.isStarting = false;
+    this.lastProcessedIndex = -1;
+    this.highestResultIndex = -1;
+  }
+
+  init(callbacks = {}) {
+    this.callbacks = { ...this.callbacks, ...callbacks };
+    this.isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
+    if (this.isEnabled) {
+      this.start();
+    }
+  }
+
+  isListeningContinuous() {
+    return this.isActive && !!this.recognition;
+  }
+
+  async ensureAudioStream() {
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) return null;
+    if (this.mediaStream && this.mediaStream.active) return this.mediaStream;
+
+    try {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
+      return this.mediaStream;
+    } catch (err) {
+      console.warn('[UltronVoice] getUserMedia failed or denied:', err);
+      if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(false);
+      return null;
+    }
+  }
+
+  async activate() {
+    this.isEnabled = true;
+    this.isActive = true;
+    localStorage.setItem('ultron_wake_word', 'true');
+    await this.ensureAudioStream();
+    playWakeChime();
+    this.start();
+  }
+
+  async start() {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('[UltronVoice] Web Speech API not supported in this browser.');
+      return;
+    }
+
+    if (this.recognition || this.isStarting) return;
+    this.isStarting = true;
+
+    try {
+      // Ensure microphone stream is active so Chrome never blocks background recognition
+      if (!this.mediaStream || !this.mediaStream.active) {
+        await this.ensureAudioStream();
+      }
+
+      const recognition = new SpeechRecognition();
+      this.recognition = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.lang = getSpeechLanguage();
+
+      recognition.onstart = () => {
+        this.isStarting = false;
+        this.isActive = true;
+        this.lastProcessedIndex = -1;
+        this.highestResultIndex = -1;
+        if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(true);
+        if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
+        console.log('[UltronVoice] Continuous "Hey Ultron" listener active & listening.');
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        let final = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          this.highestResultIndex = Math.max(this.highestResultIndex, i);
+          // Skip already processed historical utterances
+          if (i <= this.lastProcessedIndex) continue;
+
+          const res = event.results[i];
+          if (res.isFinal) {
+            final += ' ' + res[0].transcript;
+          } else {
+            interim += ' ' + res[0].transcript;
+          }
+        }
+
+        const rawSpoken = (final + ' ' + interim).trim();
+        if (!rawSpoken) return;
+
+        const normalizedSpoken = rawSpoken.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // STATE 1: IDLE (Wake Word Detection Mode)
+        if (this.state === 'idle') {
+          if (WAKE_WORD_REGEX.test(rawSpoken) || WAKE_WORD_REGEX.test(normalizedSpoken)) {
+            playWakeChime();
+
+            const followingCommand = extractCommandAfterWakeWord(rawSpoken);
+            this.state = 'listening';
+            this.currentCommandText = followingCommand;
+
+            if (this.callbacks.onWake) {
+              this.callbacks.onWake({ raw: rawSpoken, command: followingCommand });
+            }
+            if (this.callbacks.onStateChange) {
+              this.callbacks.onStateChange('listening');
+            }
+
+            if (followingCommand && followingCommand.length > 1) {
+              if (this.callbacks.onPartial) {
+                this.callbacks.onPartial(followingCommand);
+              }
+              this.scheduleSilenceSubmit(1800);
+            } else {
+              if (this.callbacks.onPartial) {
+                this.callbacks.onPartial('Listening, go ahead...');
+              }
+              this.scheduleSilenceSubmit(3500);
+            }
+
+            // Hard safety timer: close listening HUD after 7 seconds max
+            this.scheduleHardTimeout(7000);
+          }
+        }
+        // STATE 2: LISTENING (Voice Command Capture Mode)
+        else if (this.state === 'listening') {
+          const cleanCommand = extractCommandAfterWakeWord(rawSpoken) || rawSpoken;
+          this.currentCommandText = cleanCommand;
+
+          if (this.callbacks.onPartial) {
+            this.callbacks.onPartial(cleanCommand);
+          }
+
+          // If speech reached a final phrase, finish shortly
+          if (final.trim().length > 0) {
+            this.scheduleSilenceSubmit(1200);
+          } else {
+            this.scheduleSilenceSubmit(1800);
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        this.isStarting = false;
+        if (event.error === 'not-allowed') {
+          console.warn('[UltronVoice] Microphone permission not allowed');
+          if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(false);
+          this.isActive = false;
+          return;
+        }
+
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.warn('[UltronVoice] Recognition status/error:', event.error);
+        }
+      };
+
+      recognition.onend = () => {
+        this.isStarting = false;
+        this.recognition = null;
+        this.lastProcessedIndex = -1;
+        this.highestResultIndex = -1;
+
+        // Auto-restart if user has enabled wake word and engine is active
+        // Web Speech API continuous naturally ends on extended silence (~60s); restarting here keeps it 24/7 active
+        if (this.isEnabled && this.isActive) {
+          if (this.restartTimer) clearTimeout(this.restartTimer);
+          this.restartTimer = setTimeout(() => {
+            if (this.isEnabled && this.isActive) {
+              this.start();
+            }
+          }, 200);
+        } else {
+          if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
+        }
+      };
+
+      recognition.start();
+    } catch (err) {
+      this.isStarting = false;
+      this.recognition = null;
+      console.warn('[UltronVoice] Start exception (will retry):', err);
+      if (this.isEnabled && this.isActive) {
+        if (this.restartTimer) clearTimeout(this.restartTimer);
+        this.restartTimer = setTimeout(() => this.start(), 500);
+      }
+    }
+  }
+
+  scheduleSilenceSubmit(timeoutMs = 1800) {
+    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    this.silenceTimer = setTimeout(() => {
+      this.submitCurrentCommand();
+    }, timeoutMs);
+  }
+
+  scheduleHardTimeout(timeoutMs = 7000) {
+    if (this.hardSafetyTimer) clearTimeout(this.hardSafetyTimer);
+    this.hardSafetyTimer = setTimeout(() => {
+      if (this.state === 'listening') {
+        this.submitCurrentCommand();
+      }
+    }, timeoutMs);
+  }
+
+  submitCurrentCommand() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    if (this.hardSafetyTimer) {
+      clearTimeout(this.hardSafetyTimer);
+      this.hardSafetyTimer = null;
+    }
+
+    const command = (this.currentCommandText || '').trim();
+    const hasValidCommand = command && command.length > 1 && !WAKE_WORD_REGEX.test(command);
+
+    if (hasValidCommand) {
+      this.state = 'processing';
+      if (this.callbacks.onStateChange) this.callbacks.onStateChange('processing');
+      if (this.callbacks.onPartial) this.callbacks.onPartial(command);
+
+      if (this.callbacks.onCommand) {
+        this.callbacks.onCommand(command);
+      }
+    }
+
+    // Mark all captured results up to now as consumed so they are never re-evaluated
+    this.lastProcessedIndex = Math.max(this.lastProcessedIndex, this.highestResultIndex);
+    this.currentCommandText = '';
+
+    setTimeout(() => {
+      this.state = 'idle';
+      if (this.callbacks.onStateChange) this.callbacks.onStateChange('idle');
+      if (this.callbacks.onPartial) this.callbacks.onPartial('');
+
+      // Continuous session remains uninterrupted: recognition is NOT aborted, mic stays hot!
+    }, hasValidCommand ? 500 : 100);
+  }
+
+  async triggerManual() {
+    this.isEnabled = true;
+    this.isActive = true;
+    await this.ensureAudioStream();
+    playWakeChime();
+
+    // Mark past utterances as consumed so manual input starts fresh
+    this.lastProcessedIndex = Math.max(this.lastProcessedIndex, this.highestResultIndex);
+    this.currentCommandText = '';
+    this.state = 'listening';
+
+    if (this.callbacks.onStateChange) this.callbacks.onStateChange('listening');
+    if (this.callbacks.onPartial) this.callbacks.onPartial('Listening...');
+    this.scheduleSilenceSubmit(3500);
+    this.scheduleHardTimeout(7000);
+
+    // If recognition is not already running, start it
+    if (!this.recognition && !this.isStarting) {
+      this.start();
+    }
+  }
+
+  cancelManual() {
+    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    if (this.hardSafetyTimer) clearTimeout(this.hardSafetyTimer);
+    this.lastProcessedIndex = Math.max(this.lastProcessedIndex, this.highestResultIndex);
+    this.currentCommandText = '';
+    this.state = 'idle';
+    if (this.callbacks.onStateChange) this.callbacks.onStateChange('idle');
+    if (this.callbacks.onPartial) this.callbacks.onPartial('');
+  }
+
+  stop() {
+    this.isEnabled = false;
+    this.isActive = false;
+    if (this.restartTimer) clearTimeout(this.restartTimer);
+    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    if (this.hardSafetyTimer) clearTimeout(this.hardSafetyTimer);
+    if (this.recognition) {
+      try { this.recognition.abort(); } catch (e) {}
+      this.recognition = null;
+    }
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(t => t.stop());
+      this.mediaStream = null;
+    }
+    this.state = 'idle';
+    if (this.callbacks.onStateChange) this.callbacks.onStateChange('idle');
+    if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(false);
+  }
+
+  enable() {
+    this.activate();
+  }
+}
+
+export const ultronVoiceEngine = new UltronContinuousVoiceEngine();
+
+export function startWakeWordListener(callbacks) {
+  ultronVoiceEngine.init(callbacks);
+  return true;
+}
+
+export function stopWakeWordListener() {
+  ultronVoiceEngine.stop();
 }

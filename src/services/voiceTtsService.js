@@ -7,6 +7,10 @@ import { safeFetchPost } from './safeFetchService';
  */
 
 export const VOICE_PROFILES = {
+  in_priya:    { name: "Priya (Indian English Articulate Female)", gender: 'female', lang: 'en-IN', pitch: 1.05, rate: 0.98 },
+  in_aarav:    { name: "Aarav (Indian English Confident Male)",     gender: 'male',   lang: 'en-IN', pitch: 0.82, rate: 0.98 },
+  hi_ananya:   { name: "Ananya (Hindi Warm Female - हिन्दी)",      gender: 'female', lang: 'hi-IN', pitch: 1.10, rate: 0.95 },
+  hi_kabir:    { name: "Kabir (Hindi Deep Male - हिन्दी)",         gender: 'male',   lang: 'hi-IN', pitch: 0.78, rate: 0.95 },
   af_heart:    { name: "Heart (Warm & Intimate Female)",    gender: 'female', lang: 'en-US', pitch: 1.05, rate: 0.95 },
   af_bella:    { name: "Bella (Smooth & Articulate Female)", gender: 'female', lang: 'en-US', pitch: 1.20, rate: 1.00 },
   af_sarah:    { name: "Sarah (Soft & Friendly Female)",     gender: 'female', lang: 'en-US', pitch: 1.35, rate: 1.05 },
@@ -145,10 +149,17 @@ export function speakText(text, options = {}) {
       if (systemVoices.length > 0) {
         const isFemale = profile.gender === 'female';
         const isBritish = profile.lang.includes('GB');
+        const isIndian = profile.lang.includes('IN') || profile.lang.includes('hi');
 
         let matched = systemVoices.find(v => {
           const n = v.name.toLowerCase();
           const l = v.lang.toLowerCase();
+
+          if (isIndian && (l.includes('in') || l.includes('hi') || n.includes('india') || n.includes('hindi') || n.includes('heera') || n.includes('neerja') || n.includes('kalpana') || n.includes('hemant') || n.includes('prabhat'))) {
+            if (isFemale && (n.includes('female') || n.includes('neerja') || n.includes('heera') || n.includes('kalpana') || n.includes('priya'))) return true;
+            if (!isFemale && (n.includes('male') || n.includes('hemant') || n.includes('prabhat') || n.includes('aarav') || n.includes('ravi'))) return true;
+            return true;
+          }
           if (isBritish && (l.includes('gb') || n.includes('uk') || n.includes('british'))) {
             if (isFemale && (n.includes('female') || n.includes('zira') || n.includes('hazel') || n.includes('susan'))) return true;
             if (!isFemale && (n.includes('male') || n.includes('george') || n.includes('david'))) return true;

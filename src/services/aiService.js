@@ -11,9 +11,9 @@ const DEFAULT_NVIDIA_KEY = 'nvapi-Aqw6ZnY6x9sOWTRDlx2OEhLBekNBckKRbkdHFKRQTzYBv5
 const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
 
 const GREETINGS_AND_MIC_TESTS = [
-  /^(hello|hi|hey|greetings|hola|namaste|sup|yo)\b/i,
-  /(am i|can you|are you|is the|test)\s*(audible|hear me|microphone|mic|listening|working)/i,
-  /who are you|what is your name|what can you do|who created you/i
+  /^(hello|hi|hey|greetings|hola|namaste|namaskar|pranam|kaise ho|kya haal|sup|yo|suno|arre)\b/i,
+  /(am i|can you|are you|is the|test|awaz|aawaz)\s*(audible|hear me|microphone|mic|listening|working|aa rahi|sun rahe)/i,
+  /who are you|what is your name|what can you do|who created you|tum kaun ho|aap kaun ho/i
 ];
 
 /**
@@ -110,6 +110,8 @@ Do NOT force coding projects, software boilerplate, or code blocks unless code i
   if (learnedWisdom) {
     systemPrompt += `\n\n[ULTRON Real-Time Learned Knowledge]:\n${learnedWisdom}`;
   }
+
+  systemPrompt += `\n\n[Multilingual Understanding]: You fluently understand Indian English accents, Hindi (हिन्दी), and Hinglish (mixed Hindi-English). When the user speaks in Hindi or Hinglish, answer back naturally in matching Hindi or Hinglish with clarity and warmth.`;
 
   // Inject User Stored Memories (from Memory Bank)
   try {
