@@ -208,52 +208,24 @@ class MusicPlayerService {
           const data = await res.json();
           if (data.success && data.videoId) {
             this.state.videoId = data.videoId;
-            this.state.ytEmbedUrl = `https://www.youtube-nocookie.com/embed/${data.videoId}?autoplay=1&enablejsapi=1`;
+            const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
+            this.state.ytEmbedUrl = `https://www.youtube.com/embed/${data.videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`;
             this.state.isLoading = false;
             this.notify();
             return this.state.currentTrack;
           }
         }
       } catch (err) {
-        console.warn('[MusicPlayer] Local yt-search failed, trying fallback:', err);
+        console.warn('[MusicPlayer] Local yt-search failed, using direct search stream:', err);
       }
 
-      // Fallback: iTunes instant audio search for real playable audio stream
-      try {
-        const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(clean)}&media=music&limit=1`);
-        if (itunesRes.ok) {
-          const itunesData = await itunesRes.json();
-          if (itunesData.results && itunesData.results.length > 0) {
-            const track = itunesData.results[0];
-            if (track.previewUrl) {
-              this.state.sourceType = 'audio';
-              this.state.currentTrack = {
-                id: `itunes-${track.trackId}`,
-                title: track.trackName,
-                artist: track.artistName,
-                genre: track.primaryGenreName || 'Music',
-                cover: track.artworkUrl100
-              };
-              if (this.audioElement) {
-                this.audioElement.src = track.previewUrl;
-                try {
-                  await this.audioElement.play();
-                  this.state.isPlaying = true;
-                } catch (e) {}
-              }
-              this.state.isLoading = false;
-              this.notify();
-              return this.state.currentTrack;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[MusicPlayer] iTunes search fallback failed:', err);
-      }
-
-      // Final fallback if resolution was blocked
+      // 100% Full-Length Fallback: Direct YouTube Stream (NEVER 30-second iTunes snippets!)
+      const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
+      this.state.sourceType = 'youtube';
+      this.state.ytEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(clean)}&autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`;
       this.state.isLoading = false;
       this.notify();
+      return this.state.currentTrack;
     }
 
     this.notify();

@@ -3,7 +3,8 @@ import { Mic, MicOff, X, AlertCircle, Sparkles, Volume2, VolumeX, Radio, ShieldA
 import { 
   ultronVoiceEngine,
   requestMicrophonePermission,
-  playWakeChime
+  playWakeChime,
+  unlockAudioContext
 } from '../services/voiceService';
 import { stopSpeech, isUltronSpeaking } from '../services/voiceTtsService';
 
@@ -81,8 +82,9 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
       ultronVoiceEngine.activate().catch(() => {});
     }
 
-    // Auto-activate continuous recognition on user's first touch/tap on mobile
+    // Auto-activate continuous recognition & unlock audio on user's first touch/tap on mobile
     const handleFirstTouch = () => {
+      unlockAudioContext();
       if (shouldStart && !ultronVoiceEngine.isListeningContinuous()) {
         ultronVoiceEngine.activate().catch(() => {});
       }

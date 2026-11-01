@@ -112,15 +112,45 @@ export async function requestMicrophonePermission() {
  * Synthesizes a futuristic two-tone confirmation chime using Web Audio API
  */
 let sharedAudioCtx = null;
-function getAudioContext() {
+let audioContextUnlocked = false;
+
+export function unlockAudioContext() {
+  if (audioContextUnlocked && sharedAudioCtx && sharedAudioCtx.state === 'running') return;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return null;
+    if (!AudioCtx) return;
     if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
       sharedAudioCtx = new AudioCtx();
     }
     if (sharedAudioCtx.state === 'suspended') {
-      sharedAudioCtx.resume().catch(() => {});
+      sharedAudioCtx.resume().then(() => {
+        audioContextUnlocked = true;
+      }).catch(() => {});
+    } else if (sharedAudioCtx.state === 'running') {
+      audioContextUnlocked = true;
+    }
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  const handleInteraction = () => {
+    unlockAudioContext();
+  };
+  window.addEventListener('click', handleInteraction, { passive: true });
+  window.addEventListener('touchstart', handleInteraction, { passive: true });
+  window.addEventListener('keydown', handleInteraction, { passive: true });
+}
+
+function getAudioContext() {
+  try {
+    if (!sharedAudioCtx) {
+      unlockAudioContext();
+    }
+    if (!sharedAudioCtx || sharedAudioCtx.state !== 'running') {
+      if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+        sharedAudioCtx.resume().catch(() => {});
+      }
+      return null;
     }
     return sharedAudioCtx;
   } catch (e) {
@@ -131,7 +161,7 @@ function getAudioContext() {
 export function playWakeChime() {
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
+    if (!ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
 
     // Tone 1: 587.33 Hz (D5)

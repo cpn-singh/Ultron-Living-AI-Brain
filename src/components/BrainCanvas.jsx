@@ -38,7 +38,7 @@ export default function BrainCanvas() {
 
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (e) {
       renderer = new THREE.WebGLRenderer({ alpha: true });
     }

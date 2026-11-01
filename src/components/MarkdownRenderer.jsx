@@ -269,8 +269,9 @@ function YouTubeEmbedBlock({ query }) {
     } catch (e) {}
   };
 
+  const originParam = typeof window !== 'undefined' && window.location.origin ? `&origin=${encodeURIComponent(window.location.origin)}` : '';
   const embedUrl = videoId
-    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=1`
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0${originParam}`
     : null;
 
   return (
@@ -317,6 +318,7 @@ function YouTubeEmbedBlock({ query }) {
               title={`YouTube Player - ${cleanQuery}`}
               className="w-full h-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
             />
           ) : (
