@@ -276,7 +276,7 @@ export default function BrainCanvas() {
     function getStoredUserName() {
       try {
         const custom = localStorage.getItem('ultron_user_name');
-        if (custom && custom.trim() && custom.trim().toUpperCase() !== 'SHIV' && custom.trim() !== 'Shiv Loves Gabriela') return custom.trim();
+        if (custom && custom.trim() && custom.trim() !== 'Shiv Loves Gabriela (Chato)' && custom.trim() !== 'Shiv Loves Gabriela') return custom.trim();
         const storedUser = localStorage.getItem('ultron_user');
         if (storedUser) {
           const u = JSON.parse(storedUser);
@@ -285,7 +285,7 @@ export default function BrainCanvas() {
           }
         }
       } catch (e) {}
-      return 'Shiv Loves Gabriela (Chato)';
+      return 'Shiv';
     }
 
     let currentName = getStoredUserName();
@@ -356,7 +356,7 @@ export default function BrainCanvas() {
 
       function drawCanvasText(n) {
         ctx.clearRect(0, 0, 4096, 256); // 100% transparent - NO box, NO capsule!
-        const disp = (n || 'Shiv Loves Gabriela (Chato)').trim();
+        const disp = (n || 'Shiv').trim();
 
         // Thin glowing pinkish neon line running through the circle
         ctx.strokeStyle = "rgba(255, 60, 160, 0.55)";
@@ -368,13 +368,14 @@ export default function BrainCanvas() {
         ctx.lineTo(4096, 128);
         ctx.stroke();
 
-        // Clear line behind text with balanced margins for "Shiv Loves Gabriela (Chato)"
-        ctx.clearRect(2048 - 560, 50, 1120, 156);
-
         // Semi-bold (weight 600) pinkish glowing text in natural unstretched font proportions
         ctx.font = '600 40px "Orbitron", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+
+        // Clear line behind text with dynamic balanced margins based on measured text width
+        const textWidth = ctx.measureText(disp).width;
+        ctx.clearRect(2048 - (textWidth / 2 + 30), 50, textWidth + 60, 156);
 
         // Outer neon pink glow pass
         ctx.shadowColor = "rgba(255, 45, 140, 1.0)";

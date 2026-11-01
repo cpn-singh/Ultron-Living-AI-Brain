@@ -6,7 +6,7 @@ import { testNvidiaConnection, testGeminiConnection } from '../services/aiServic
 export default function SettingsModal({ onClose }) {
   const [orbitName, setOrbitName] = useState(() => {
     const val = localStorage.getItem('ultron_user_name');
-    if (!val || val.trim().toUpperCase() === 'SHIV' || val.trim() === 'Shiv Loves Gabriela') return 'Shiv Loves Gabriela (Chato)';
+    if (!val || val.trim() === 'Shiv Loves Gabriela (Chato)' || val.trim() === 'Shiv Loves Gabriela') return 'Shiv';
     return val;
   });
   const [activeModel, setActiveModel] = useState(() => localStorage.getItem('ultron_ai_model') || 'nvidia-nemotron');
@@ -22,7 +22,7 @@ export default function SettingsModal({ onClose }) {
   const [nvidiaStatus, setNvidiaStatus] = useState('');
 
   const handleSave = () => {
-    const cleanName = (orbitName || 'Shiv Loves Gabriela (Chato)').trim();
+    const cleanName = (orbitName || 'Shiv').trim();
     localStorage.setItem('ultron_user_name', cleanName);
     localStorage.setItem('ultron_ai_model', activeModel);
     localStorage.setItem('ultron_gemini_key', geminiKey);
