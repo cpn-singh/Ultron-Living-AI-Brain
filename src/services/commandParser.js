@@ -41,6 +41,12 @@ const PATTERNS = {
     /(?:switch\s+to|open|show|go\s+to)\s+(?:the\s+)?(chat|swarm|files|file\s+manager|memory|knowledge)(?:\s+tab|\s+panel)?/i
   ],
 
+  // Media / YouTube playback: "play Kasa song by Honey Singh", "play despacito", "suna koi gaana"
+  PLAY_MEDIA: [
+    /(?:play|baja|bajao|suna|sunao)\s+(?:a\s+)?(?:song|video|music|track|gaana|gana)?\s*(?:called\s+|named\s+)?(.+)/i,
+    /(?:play|baja|bajao)\s+(.+)/i
+  ],
+
   // App launch: "open chrome", "launch notepad", "start software spotify"
   LAUNCH_APP: [
     /(?:open|launch|start|run)\s+(?:the\s+)?(?:app\s+|software\s+|program\s+|application\s+)?(?:called\s+|named\s+)?(.+)/i
@@ -91,9 +97,34 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
       '**"create folder [name]"** — Create a folder',
       '**"open [filename.ext]"** — Open a file with system app',
       '**"list files"** — Browse your Ultron files',
+      '**"play [song/artist/video]"** — Play media or music on YouTube',
       '**"open [software name]"** — Launch installed software on PC (Chrome, Notepad, Calc, VS Code, etc.)',
       '**"switch to files / swarm / chat / memory / knowledge"** — Voice navigation',
     ]);
+  }
+
+  // ── PLAY MEDIA / MUSIC / YOUTUBE ──
+  const playTarget = extract(text, PATTERNS.PLAY_MEDIA);
+  if (playTarget) {
+    const cleanMedia = playTarget
+      .replace(/\b(song|music|track|video|gana|gaana|on youtube|in youtube|youtube par)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (cleanMedia.length > 0) {
+      const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanMedia)}`;
+      try {
+        if (typeof window !== 'undefined') {
+          window.open(ytUrl, '_blank', 'noopener,noreferrer');
+        }
+      } catch (e) {}
+
+      return fmt('🎵', 'Playing Media on YouTube', [
+        `**Query**: "${cleanMedia}"`,
+        `**Action**: Launched YouTube search & playback tab.`,
+        `Enjoy listening to **${cleanMedia}**.`
+      ]);
+    }
   }
 
   // ── NAVIGATE TABS VIA VOICE ──

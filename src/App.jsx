@@ -143,7 +143,7 @@ export default function App() {
         activeAgent={activeAgent} 
         setActiveAgent={setActiveAgent}
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={handleTabSwitch} 
         onOpenSettings={() => setShowSettings(true)}
         onOpenAuth={() => setShowAuth(true)}
         onToggleMobileSidebar={() => setSidebarOpen(!sidebarOpen)}

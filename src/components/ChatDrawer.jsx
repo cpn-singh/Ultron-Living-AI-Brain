@@ -11,6 +11,7 @@ import { BOTS } from '../data/botsData';
 import MarkdownRenderer from './MarkdownRenderer';
 
 const MIC_STATES = { idle: 'idle', ready: 'ready', listening: 'listening', processing: 'processing' };
+let lastGlobalProcessedSpeechTs = 0;
 
 export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, speechTriggerText, onClearSpeechTrigger }) {
   const activeBotObj = BOTS.find(b => b.id === activeAgent) || BOTS[0];
@@ -27,7 +28,8 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           // Filter out legacy error artifacts from previous versions
           const cleaned = parsed.filter(m => 
             !m.text?.includes('Speech-to-text service is unavailable') &&
-            !m.text?.includes('offline voice model')
+            !m.text?.includes('offline voice model') &&
+            !m.text?.includes('Voice error:')
           );
           if (cleaned.length > 0) return cleaned;
         }
@@ -134,14 +136,42 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     }
   }, [input, addMessage, onSwitchTab, webSearchEnabled]);
 
+  // Proactively purge any cached legacy voice error messages
+  useEffect(() => {
+    setMessages(prev => {
+      const hasCorrupt = prev.some(m => 
+        m.text?.includes('Speech-to-text service is unavailable') ||
+        m.text?.includes('offline voice model') ||
+        m.text?.includes('Voice error:')
+      );
+      if (!hasCorrupt) return prev;
+      const purged = prev.filter(m => 
+        !m.text?.includes('Speech-to-text service is unavailable') &&
+        !m.text?.includes('offline voice model') &&
+        !m.text?.includes('Voice error:')
+      );
+      return purged.length > 0 ? purged : [
+        {
+          id: 1,
+          sender: 'ULTRON',
+          botName: activeBotObj.name,
+          isWelcome: true,
+          text: `Welcome to **ULTRON Swarm (2026 Core)**\n\nI'm your next-generation desktop AI companion.\n- **Frontier AI Engines**: Google Gemini 3.8 Flash & DeepSeek-R1 / LLaMA 3.3.\n- **Live Web Grounding**: Search the open web with live citations (click 🌐 below).\n- **Interactive Code Sandboxes**: Click **Run** on any Python or JS code block to execute locally.\n- **PC Software Automation**: Say *"open Chrome"*, *"launch VS Code"*, or *"open Spotify"*.\n- **Voice Ready**: Press **⌘⇧Space** or click the mic button to speak.`
+        }
+      ];
+    });
+  }, [activeBotObj.name]);
+
+  // Execute speech recognition triggers safely without duplicate replay on re-opening drawer
   useEffect(() => {
     if (
       speechTriggerText &&
       speechTriggerText.text &&
-      Date.now() - speechTriggerText.ts < 5000 &&
-      speechTriggerText.ts !== processedSpeechTsRef.current
+      speechTriggerText.ts &&
+      speechTriggerText.ts > lastGlobalProcessedSpeechTs &&
+      Date.now() - speechTriggerText.ts < 6000
     ) {
-      processedSpeechTsRef.current = speechTriggerText.ts;
+      lastGlobalProcessedSpeechTs = speechTriggerText.ts;
       const textToSend = speechTriggerText.text;
       if (onClearSpeechTrigger) {
         onClearSpeechTrigger();
@@ -153,8 +183,11 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   useEffect(() => {
     return () => {
       stopSpeech();
+      if (onClearSpeechTrigger) {
+        onClearSpeechTrigger();
+      }
     };
-  }, []);
+  }, [onClearSpeechTrigger]);
 
   const handleVoice = useCallback(async () => {
     if (micState !== MIC_STATES.idle) {

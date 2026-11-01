@@ -155,7 +155,7 @@ export function setSpeechLanguage(langCode) {
  */
 export const WAKE_WORD_REGEX = new RegExp(
   '(?:' +
-    '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste|yo)?' +
+    '\\b(?:hey|hi|he|ha|hello|ok|okay|listen|arre|arey|are|ae|aye|ay|suno|sun|bhai|oye|o|namaste|yo)?' +
     '[\\s,.\'\\"-]*' +
     '(?:ultron|altron|aaltron|ultra|eltron|oltron|voltron|waltron|electron|all\\s*tron|old\\s*tron|haltron|ultran|altran|outrun|outron|el\\s*drone|all\\s*drone|old\\s*drone|all\\s*turn|al\\s*turn|all\\s*trone|alt\\s*ron)\\b' +
   ')|' +
@@ -172,7 +172,7 @@ export const WAKE_WORD_REGEX = new RegExp(
  * Allows user to interrupt Ultron while he is speaking by saying "Stop", "Quiet", "Ruko", "Wait", etc.
  */
 export const INTERRUPTION_REGEX = new RegExp(
-  '\\b(?:stop|shutup|shut\\s*up|quiet|silence|pause|cancel|halt|wait|hold\\s*on|enough|ruk|ruko|chup|bas|suno|sun)\\b',
+  '\\b(?:stop|shutup|shut\\s*up|quiet|silence|pause|cancel|halt|wait|hold\\s*on|enough|ruk|ruko|chup|bas|suno|sun|chup\\s*raho|arey\\s*ruk|ek\\s*minute|listen|listen\\s*to\\s*me)\\b',
   'i'
 );
 
@@ -185,7 +185,7 @@ export function extractCommandAfterWakeWord(text) {
     .replace(
       new RegExp(
         '^.*?(?:' +
-          '\\b(?:hey|hi|hello|ok|okay|listen|arre|arey|are|suno|sun|bhai|oye|o|namaste|yo)?' +
+          '\\b(?:hey|hi|he|ha|hello|ok|okay|listen|arre|arey|are|ae|aye|ay|suno|sun|bhai|oye|o|namaste|yo)?' +
           '[\\s,.\'\\"-]*' +
           '(?:ultron|altron|aaltron|ultra|eltron|oltron|voltron|waltron|electron|all\\s*tron|old\\s*tron|haltron|ultran|altran|outrun|outron|el\\s*drone|all\\s*drone|old\\s*drone|all\\s*turn|al\\s*turn|all\\s*trone|alt\\s*ron)\\b' +
         '|' +
@@ -358,9 +358,38 @@ class UltronContinuousVoiceEngine {
         const isSpeakingNow = (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) || this.isSelfSpeaking;
         if (isSpeakingNow) {
           const isInterruption = INTERRUPTION_REGEX.test(rawSpoken) || INTERRUPTION_REGEX.test(normalizedSpoken);
-          if (isInterruption) {
+          const hasWakeWord = WAKE_WORD_REGEX.test(rawSpoken) || WAKE_WORD_REGEX.test(normalizedSpoken);
+
+          if (isInterruption || hasWakeWord) {
             console.log('[UltronVoice] Voice barge-in detected. Stopping TTS playback.');
             this.interruptSpeech();
+
+            if (hasWakeWord) {
+              // User interrupted by addressing Ultron ("Hey Ultron ...")
+              playWakeChime();
+              const followingCommand = extractCommandAfterWakeWord(rawSpoken);
+              this.setState('listening');
+              this.manualTriggerActive = false;
+              this.currentCommandText = followingCommand;
+              this.lastReportedCommand = followingCommand;
+              this.lastSpokenChangeTime = Date.now();
+
+              if (this.callbacks.onWake) {
+                this.callbacks.onWake({ raw: rawSpoken, command: followingCommand });
+              }
+
+              if (followingCommand && followingCommand.length > 1) {
+                if (this.callbacks.onPartial) this.callbacks.onPartial(followingCommand);
+                this.scheduleSilenceSubmit(1100);
+              } else {
+                if (this.callbacks.onPartial) this.callbacks.onPartial('Listening, speak now...');
+                this.scheduleSilenceSubmit(3800);
+              }
+              this.scheduleHardTimeout(7000);
+              return;
+            }
+
+            // User said "stop" / "quiet" / "ruko"
             this.processedIndex = event.results.length;
             this.setState('idle');
             if (this.callbacks.onPartial) this.callbacks.onPartial('Ultron silenced');

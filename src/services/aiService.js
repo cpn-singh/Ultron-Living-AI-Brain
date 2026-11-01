@@ -9,6 +9,8 @@ import { selfHealingEngine } from './selfHealingService';
 const DEFAULT_GEMINI_KEY = 'AQ.Ab8RN6JbJoqII58fggQw7qe7dzbtTY4Yabqr-UZNeteyxmV0CA';
 const DEFAULT_NVIDIA_KEY = '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';
 const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
+let pythonBackendAvailable = null;
+let lastPythonCheckTime = 0;
 
 const GREETINGS_AND_MIC_TESTS = [
   /^(hello|hi|hey|greetings|hola|namaste|namaskar|pranam|kaise ho|kya haal|sup|yo|suno|arre)\b/i,
@@ -96,26 +98,37 @@ export async function generateAIResponse(userPrompt, botId = 'orchestrator', con
     console.warn('[CommandParser] Offline parser check:', err);
   }
 
-  // 3. Try Local Python Backend Server (http://127.0.0.1:8000)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 800);
-    const pythonRes = await fetch(`${PYTHON_BACKEND_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: trimmed, botId: selectedBot.id }),
-      signal: controller.signal
-    }).catch(() => null);
-    clearTimeout(timeoutId);
+  // 3. Try Local Python Backend Server (http://127.0.0.1:8000) only if backend is active or unchecked recently
+  const now = Date.now();
+  const shouldTryPython = pythonBackendAvailable === true || (pythonBackendAvailable === null && now - lastPythonCheckTime > 30000);
+  if (shouldTryPython) {
+    try {
+      lastPythonCheckTime = now;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+      const pythonRes = await fetch(`${PYTHON_BACKEND_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: trimmed, botId: selectedBot.id }),
+        signal: controller.signal
+      }).catch(() => {
+        pythonBackendAvailable = false;
+        return null;
+      });
+      clearTimeout(timeoutId);
 
-    if (pythonRes && pythonRes.ok) {
-      const pyData = await pythonRes.json();
-      if (pyData.success && pyData.response) {
-        return triggerColabCopyAndRedirect(pyData.response);
+      if (pythonRes && pythonRes.ok) {
+        pythonBackendAvailable = true;
+        const pyData = await pythonRes.json();
+        if (pyData.success && pyData.response) {
+          return triggerColabCopyAndRedirect(pyData.response);
+        }
+      } else {
+        pythonBackendAvailable = false;
       }
+    } catch (err) {
+      pythonBackendAvailable = false;
     }
-  } catch (err) {
-    // Python server offline
   }
 
   // 4. Cloud API Inference: Primary -> Gemini API, Secondary -> NVIDIA NIM API
