@@ -61,12 +61,44 @@ class MusicPlayerService {
       volume: 0.85,
       isMuted: false,
       currentTime: 0,
-      duration: 0
+      duration: 0,
+      needsUserGesture: false
     };
 
     if (typeof window !== 'undefined') {
       this.initAudio();
+      this.initUserGestureUnlock();
     }
+  }
+
+  initUserGestureUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this.unlockAudio();
+    };
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('touchend', unlock, { passive: true });
+  }
+
+  unlockAudio() {
+    if (this._unlocked || !this.audioElement) return;
+    try {
+      const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      if (!this.audioElement.src) {
+        this.audioElement.src = silentWav;
+        const p = this.audioElement.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            this.audioElement.pause();
+            this.audioElement.currentTime = 0;
+            this._unlocked = true;
+          }).catch(() => {});
+        }
+      } else {
+        this._unlocked = true;
+      }
+    } catch (_) {}
   }
 
   initAudio() {
@@ -267,9 +299,15 @@ class MusicPlayerService {
                 this.audioElement.volume = this.state.volume;
                 await this.audioElement.play();
                 this.state.isPlaying = true;
+                this.state.needsUserGesture = false;
               } catch (playErr) {
-                console.warn('[MusicPlayer] Direct audio stream autoplay notice:', playErr);
+                console.warn('[MusicPlayer] Direct audio stream autoplay notice (requires tap on mobile Chrome):', playErr);
+                this.state.isPlaying = false;
+                this.state.needsUserGesture = true;
               }
+            } else if (!data.audioUrl) {
+              this.state.isPlaying = false;
+              this.state.needsUserGesture = true;
             }
 
             this.state.isLoading = false;
@@ -281,8 +319,48 @@ class MusicPlayerService {
         console.warn('[MusicPlayer] Local yt-search failed, using direct search stream:', err);
       }
 
-      // 100% Full-Length Fallback: Direct YouTube Music Search Stream
+      // Client-side fallback if backend /api/yt-search is unavailable (e.g. static hosting)
+      if (!this.state.audioUrl) {
+        try {
+          const fallbackRes = await fetch(`https://jiosaavn-api.vercel.app/search?query=${encodeURIComponent(clean)}`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            const top = (fallbackData.results || [])[0];
+            if (top && top.more_info?.vlink) {
+              this.state.audioUrl = top.more_info.vlink;
+              this.state.currentTrack = {
+                id: `song-${Date.now()}`,
+                title: top.title || clean,
+                artist: top.more_info?.singers || 'Ultron Music',
+                genre: 'Audio Stream',
+                cover: top.images?.['500x500'] || top.image || null
+              };
+              if (this.audioElement) {
+                this.audioElement.src = top.more_info.vlink;
+                this.audioElement.volume = this.state.volume;
+                try {
+                  await this.audioElement.play();
+                  this.state.isPlaying = true;
+                  this.state.needsUserGesture = false;
+                } catch (e) {
+                  this.state.isPlaying = false;
+                  this.state.needsUserGesture = true;
+                }
+              }
+              this.state.isLoading = false;
+              this.notify();
+              return this.state.currentTrack;
+            }
+          }
+        } catch (fErr) {
+          console.warn('[MusicPlayer] Public CORS audio fallback notice:', fErr);
+        }
+      }
+
+      // 100% Fallback: Direct YouTube Music Search Stream
       this.state.sourceType = 'youtube';
+      this.state.isPlaying = false;
+      this.state.needsUserGesture = true;
       this.state.musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(clean)}`;
       this.state.ytEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(clean + ' audio')}&autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
       this.state.isLoading = false;
@@ -308,14 +386,17 @@ class MusicPlayerService {
 
   async resume() {
     this.isUserPaused = false;
+    this.state.needsUserGesture = false;
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ultron-media-playing'));
     }
-    if (this.state.displayMode === 'audio' && this.state.audioUrl && this.audioElement) {
+    if (this.audioElement && (this.state.audioUrl || this.audioElement.src)) {
       try {
         await this.audioElement.play();
         this.state.isPlaying = true;
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[MusicPlayer] Resume playback notice:', e);
+      }
     } else {
       this.state.isPlaying = true;
     }
