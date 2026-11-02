@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2, Database, ShieldCheck } from 'lucide-react';
+import { signIn, signUp, signInPasscode, checkDbStatus } from '../services/authService';
+import { fetchUserChatHistory } from '../services/chatHistoryService';
 
 export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
   const [tab, setTab] = useState('signin'); // 'signin' | 'signup' | 'passcode'
@@ -10,6 +12,8 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
   const [passcode, setPasscode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [dbInfo, setDbInfo] = useState({ connected: false, engine: 'Detecting...' });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -17,6 +21,12 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
+
+    // Check PostgreSQL connection status
+    checkDbStatus().then((status) => {
+      setDbInfo(status);
+    });
+
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
@@ -58,24 +68,58 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
     return true;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm() || loading) return;
 
-    const userObj = {
-      email: email || 'user@ultron.ai',
-      name: tab === 'signup' ? name.trim() : (email ? email.split('@')[0] : 'ULTRON User'),
-      mode: tab,
-      authenticatedAt: new Date().toISOString()
-    };
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
 
-    localStorage.setItem('ultron_user', JSON.stringify(userObj));
-    setSuccessMsg(tab === 'signup' ? 'Account created successfully!' : 'Signed in successfully!');
+    try {
+      let result;
+      if (tab === 'signup') {
+        result = await signUp({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          passcode: passcode.trim() || undefined
+        });
+      } else if (tab === 'signin') {
+        result = await signIn({
+          email: email.trim(),
+          password
+        });
+      } else {
+        result = await signInPasscode(passcode.trim());
+      }
 
-    setTimeout(() => {
-      if (onAuthenticated) onAuthenticated(userObj);
-      onClose();
-    }, 500);
+      if (result.success && result.user) {
+        setSuccessMsg(result.message || (tab === 'signup' ? 'Account created & synced to database!' : 'Signed in successfully!'));
+
+        // Load & synchronize chat history from PostgreSQL
+        try {
+          const remoteHistory = await fetchUserChatHistory(result.user);
+          if (Array.isArray(remoteHistory) && remoteHistory.length > 0) {
+            localStorage.setItem('ultron_chat_history', JSON.stringify(remoteHistory));
+            window.dispatchEvent(new CustomEvent('ultron-history-synced', { detail: { messages: remoteHistory } }));
+          }
+        } catch (hErr) {
+          console.warn('[AuthModal] Chat history sync notice:', hErr);
+        }
+
+        setTimeout(() => {
+          if (onAuthenticated) onAuthenticated(result.user);
+          onClose();
+        }, 500);
+      } else {
+        setErrorMsg(result.message || 'Authentication failed. Please try again.');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Connection to authentication service failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGuest = () => {
@@ -86,19 +130,21 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
       authenticatedAt: new Date().toISOString()
     };
     localStorage.setItem('ultron_user', JSON.stringify(guestUser));
+    window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: guestUser } }));
     if (onAuthenticated) onAuthenticated(guestUser);
     onClose();
   };
 
   return (
     <div
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
     >
       <div className="glass-panel w-full max-w-md p-6 rounded-2xl relative border border-cyan-500/30 bg-slate-950/95 shadow-[0_0_50px_rgba(6,182,212,0.15)]">
         <button
           type="button"
           onClick={onClose}
+          disabled={loading}
           className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
           title="Close"
           aria-label="Close"
@@ -106,15 +152,23 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Header (No icons) */}
+        {/* Header */}
         <div className="border-b border-white/10 pb-4 mb-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            ULTRON Neural Access <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">Sign in or create an account to persist your AI sessions.</p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              ULTRON Neural Access <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            </h2>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono border bg-slate-900/80 border-cyan-500/30 text-cyan-300">
+              <Database className="w-3 h-3 text-cyan-400" />
+              <span>{dbInfo.engine || 'PostgreSQL'}</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Accounts and chat history persist in PostgreSQL and sync across Web & .exe desktop app.
+          </p>
         </div>
 
-        {/* Auth Tabs (No icons/emojis) */}
+        {/* Auth Tabs */}
         <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 mb-4">
           <button
             type="button"
@@ -153,12 +207,13 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
         )}
 
         {successMsg && (
-          <div className="mb-3 p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-800/60 text-xs text-emerald-300">
-            {successMsg}
+          <div className="mb-3 p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-800/60 text-xs text-emerald-300 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span>{successMsg}</span>
           </div>
         )}
 
-        {/* Form (No icons inside inputs) */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {tab === 'signup' && (
             <div className="flex flex-col gap-1.5">
@@ -222,25 +277,34 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
                 required
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
-                placeholder="Enter 6-digit master passcode..."
+                placeholder="Enter 4-6 digit passcode (e.g. 1234)..."
                 className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
               />
             </div>
           )}
 
-          {/* Submit button (No icon) */}
+          {/* Submit button */}
           <button
             type="submit"
-            className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-lg shadow-cyan-950/40 transition-all mt-2 cursor-pointer"
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-lg shadow-cyan-950/40 transition-all mt-2 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {tab === 'signin' ? 'Sign In' : tab === 'signup' ? 'Create Account' : 'Authenticate Passcode'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Synchronizing with PostgreSQL...</span>
+              </>
+            ) : (
+              tab === 'signin' ? 'Sign In' : tab === 'signup' ? 'Create Account & Sync' : 'Authenticate Passcode'
+            )}
           </button>
         </form>
 
-        {/* Guest fallback button (No icon) */}
+        {/* Guest fallback button */}
         <div className="pt-3 border-t border-white/10 mt-3 text-center">
           <button
             type="button"
+            disabled={loading}
             onClick={handleGuest}
             className="w-full py-2 rounded-xl text-xs text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all cursor-pointer"
           >

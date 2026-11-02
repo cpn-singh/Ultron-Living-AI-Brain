@@ -73,6 +73,7 @@ function isWebSpeechAvailable() {
  */
 export async function isVoiceAvailable() {
   if (typeof window !== 'undefined') {
+    if (window.electronAPI && window.electronAPI.isElectron) return true;
     if (isWebSpeechAvailable()) return true;
   }
   if (Capacitor.isNativePlatform()) {
@@ -96,6 +97,7 @@ export async function isVoiceAvailable() {
  */
 export async function requestMicrophonePermission() {
   if (typeof window === 'undefined') return false;
+  if (window.electronAPI && window.electronAPI.isElectron) return true;
 
   // 1. Check if permission is already granted via Permissions API
   if (navigator.permissions && navigator.permissions.query) {
@@ -399,6 +401,11 @@ class UltronContinuousVoiceEngine {
     this.callbacks = { ...this.callbacks, ...callbacks };
     this.isEnabled = localStorage.getItem('ultron_wake_word') !== 'false';
 
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      import('../desktop/desktopManager').then(m => m.desktopVoiceEngine.init(callbacks)).catch(() => {});
+      return;
+    }
+
     if (typeof window !== 'undefined' && !this.mediaListenersAttached) {
       this.mediaListenersAttached = true;
       window.addEventListener('ultron-media-playing', () => this.pauseContinuousForMedia());
@@ -411,6 +418,9 @@ class UltronContinuousVoiceEngine {
   }
 
   isListeningContinuous() {
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      return this.isActive;
+    }
     return this.isActive && !!this.recognition;
   }
 
@@ -418,6 +428,15 @@ class UltronContinuousVoiceEngine {
     this.isEnabled = true;
     this.isActive = true;
     localStorage.setItem('ultron_wake_word', 'true');
+
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      const m = await import('../desktop/desktopManager');
+      await m.desktopVoiceEngine.activate();
+      if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(true);
+      if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
+      return;
+    }
+
     await requestMicrophonePermission();
     if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(true);
     if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
@@ -426,6 +445,12 @@ class UltronContinuousVoiceEngine {
 
   async start() {
     if (typeof window === 'undefined') return;
+
+    if (window.electronAPI && window.electronAPI.isElectron) {
+      const m = await import('../desktop/desktopManager');
+      m.desktopVoiceEngine.start();
+      return;
+    }
 
     // Never auto-start continuous background mic if media is actively playing on mobile (avoids Android OS audio pause loop)
     if (isAndroidBrowser() && this.isMediaPlaying() && !this.manualTriggerActive) {
@@ -727,6 +752,12 @@ class UltronContinuousVoiceEngine {
     this.isEnabled = true;
     this.isActive = true;
     this.manualTriggerActive = true;
+
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      const m = await import('../desktop/desktopManager');
+      return m.desktopVoiceEngine.startManualRecording(onDoneCallback);
+    }
+
     if (onDoneCallback) {
       this.manualResolve = onDoneCallback;
     }
@@ -764,6 +795,11 @@ class UltronContinuousVoiceEngine {
   }
 
   cancelManual() {
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      import('../desktop/desktopManager').then(m => m.desktopVoiceEngine.stopManualRecording()).catch(() => {});
+      return;
+    }
+
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
     if (this.hardSafetyTimer) clearTimeout(this.hardSafetyTimer);
 
@@ -786,6 +822,12 @@ class UltronContinuousVoiceEngine {
   stop() {
     this.isEnabled = false;
     this.isActive = false;
+
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+      import('../desktop/desktopManager').then(m => m.desktopVoiceEngine.stopContinuous()).catch(() => {});
+      return;
+    }
+
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
@@ -821,9 +863,23 @@ class UltronContinuousVoiceEngine {
 export const ultronVoiceEngine = new UltronContinuousVoiceEngine();
 
 /**
- * Start voice recognition delegator - integrates smoothly with existing UI callers
+ * Start voice recognition delegator - integrates smoothly with existing UI callers.
+ * If running in Desktop PC Electron app, uses native Desktop Voice Engine.
+ * If running in Web Browser, uses standard Web Speech API unchanged.
  */
 export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
+  if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+    try {
+      const { startDesktopVoice } = await import('../desktop/desktopManager');
+      if (onStatus) onStatus('listening');
+      const res = await startDesktopVoice({ onStatus, onPartial });
+      if (onStatus) onStatus('idle');
+      return res || { transcript: '', error: null };
+    } catch (err) {
+      console.warn('[VoiceService] Desktop voice fallback:', err);
+    }
+  }
+
   return new Promise((resolve) => {
     ultronVoiceEngine.triggerManual((res) => {
       if (onStatus) onStatus('idle');
@@ -835,14 +891,33 @@ export async function startVoiceRecognition({ onStatus, onPartial } = {}) {
 }
 
 export async function stopVoiceRecognition() {
+  if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+    try {
+      const { stopDesktopVoice } = await import('../desktop/desktopManager');
+      await stopDesktopVoice();
+      return;
+    } catch (e) {}
+  }
   ultronVoiceEngine.cancelManual();
 }
 
 export function startWakeWordListener(callbacks) {
+  if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+    import('../desktop/desktopManager').then(({ desktopVoiceEngine }) => {
+      desktopVoiceEngine.init(callbacks);
+    }).catch(() => {});
+    return true;
+  }
   ultronVoiceEngine.init(callbacks);
   return true;
 }
 
 export function stopWakeWordListener() {
+  if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) {
+    import('../desktop/desktopManager').then(({ desktopVoiceEngine }) => {
+      desktopVoiceEngine.stopContinuous();
+    }).catch(() => {});
+    return;
+  }
   ultronVoiceEngine.stop();
 }

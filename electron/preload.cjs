@@ -9,4 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   desktopListFiles: () => ipcRenderer.invoke('desktop-list-files'),
   desktopCreateFile: (payload) => ipcRenderer.invoke('desktop-create-file', payload),
   desktopOpenFile: (path) => ipcRenderer.invoke('desktop-open-file', path),
+  desktopSpeechRecognize: (options) => ipcRenderer.invoke('desktop-speech-recognize', options),
+  desktopSpeechStop: () => ipcRenderer.invoke('desktop-speech-stop'),
+  getDbConfig: () => ipcRenderer.invoke('get-db-config'),
+  saveDbConfig: (config) => ipcRenderer.invoke('save-db-config', config),
 });

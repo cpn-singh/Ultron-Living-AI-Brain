@@ -1,0 +1,7 @@
+# ULTRON Cybernetic AI Brain - Python Backend Requirements
+# PostgreSQL Drivers
+psycopg2-binary>=2.9.9
+pg8000>=1.31.0
+
+# Optional Machine Learning & Web Scraping Utilities
+yt-dlp>=2024.0.0

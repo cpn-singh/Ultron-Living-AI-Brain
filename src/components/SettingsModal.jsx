@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User, Globe } from 'lucide-react';
+import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User, Globe, Database } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
+import { checkDbStatus, getBackendUrl } from '../services/authService';
 
 export default function SettingsModal({ onClose }) {
   const [orbitName, setOrbitName] = useState(() => {
@@ -23,6 +24,20 @@ export default function SettingsModal({ onClose }) {
   const [statusMsg, setStatusMsg] = useState('');
   const [nvidiaTesting, setNvidiaTesting] = useState(false);
   const [nvidiaStatus, setNvidiaStatus] = useState('');
+  const [dbStatus, setDbStatus] = useState(null);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [customBackendUrl, setCustomBackendUrl] = useState(() => localStorage.getItem('ultron_backend_url') || '');
+
+  React.useEffect(() => {
+    checkDbStatus().then(st => setDbStatus(st));
+  }, []);
+
+  const handleTestDb = async () => {
+    setDbLoading(true);
+    const res = await checkDbStatus();
+    setDbStatus(res);
+    setDbLoading(false);
+  };
 
   const handleSave = () => {
     const cleanName = (orbitName || 'Shiv').trim();
@@ -36,11 +51,16 @@ export default function SettingsModal({ onClose }) {
     localStorage.setItem('ultron_human_companion', humanCompanion ? 'true' : 'false');
     localStorage.setItem('ultron_wake_word', wakeWord ? 'true' : 'false');
     localStorage.setItem('ultron_speech_lang', speechLang);
+    if (customBackendUrl.trim()) {
+      localStorage.setItem('ultron_backend_url', customBackendUrl.trim());
+    } else {
+      localStorage.removeItem('ultron_backend_url');
+    }
     window.dispatchEvent(new CustomEvent('ultron-wake-word-toggle', { detail: { enabled: wakeWord } }));
     window.dispatchEvent(new CustomEvent('ultron-speech-lang-change', { detail: { lang: speechLang } }));
     
     window.dispatchEvent(new CustomEvent('ultron-name-update', { detail: { name: cleanName } }));
-    setStatusMsg('Settings & Orbit identity updated!');
+    setStatusMsg('Settings & Database sync configuration updated!');
     setTimeout(() => {
       setStatusMsg('');
       onClose();
@@ -338,6 +358,56 @@ export default function SettingsModal({ onClose }) {
             <option value="en-US">🇺🇸 English (United States)</option>
             <option value="en-GB">🇬🇧 English (United Kingdom)</option>
           </select>
+        </div>
+
+        {/* POSTGRESQL DATABASE & .EXE SYNC CONFIGURATION */}
+        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-2.5">
+          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+            <span className="flex items-center gap-1.5">
+              <Database className="w-4 h-4 text-cyan-400" /> POSTGRESQL DATABASE & .EXE SYNC
+            </span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+              dbStatus?.connected
+                ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40'
+                : 'text-cyan-300 bg-cyan-950/60 border-cyan-500/40'
+            }`}>
+              {dbStatus?.engine || 'Detecting...'}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed">
+            Persists logged-in user profiles, credentials, and synchronized chat history between your Web Browser and the compiled .exe Desktop software.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-cyan-300 font-mono">BACKEND API / DATABASE SYNC HOST</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customBackendUrl}
+                onChange={(e) => setCustomBackendUrl(e.target.value)}
+                placeholder="http://127.0.0.1:8000 (Default Local Engine)"
+                className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 font-mono focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="button"
+                disabled={dbLoading}
+                onClick={handleTestDb}
+                className="px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-cyan-300 rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${dbLoading ? 'animate-spin text-cyan-400' : ''}`} />
+                <span>Test DB</span>
+              </button>
+            </div>
+            {dbStatus && (
+              <div className="text-[10px] font-mono text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 bg-slate-900/50 p-2 rounded-lg border border-white/5">
+                <span>Engine: <strong className={dbStatus.connected ? 'text-emerald-400' : 'text-cyan-400'}>{dbStatus.engine}</strong></span>
+                <span>• Host: <strong>{dbStatus.host || 'localhost'}</strong></span>
+                <span>• DB: <strong>{dbStatus.database || 'ultron_db'}</strong></span>
+                <span>• Users: <strong className="text-cyan-300">{dbStatus.userCount ?? 0}</strong></span>
+                <span>• Chats: <strong className="text-cyan-300">{dbStatus.chatCount ?? 0}</strong></span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Action Buttons */}

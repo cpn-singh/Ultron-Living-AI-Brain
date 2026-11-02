@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, Mic, MicOff, Loader2, Copy, Check, Sparkles, Minus, Maximize2, Minimize2, X, Terminal, MessageSquare,
   Paperclip, Volume2, VolumeX, Bookmark, Eye, Brain, Clock, ChevronDown, Plus, ExternalLink, Activity, Target,
-  Globe, Download, Trash2, ChevronRight, Bot
+  Globe, Download, Trash2, ChevronRight, Bot, Database, RefreshCw
 } from 'lucide-react';
 import { generateAIResponse } from '../services/aiService';
 import { startVoiceRecognition, stopVoiceRecognition, isVoiceAvailable } from '../services/voiceService';
 import { speakText, stopSpeech } from '../services/voiceTtsService';
 import { BOTS } from '../data/botsData';
 import MarkdownRenderer from './MarkdownRenderer';
+import { saveMessageToDatabase, fetchUserChatHistory, syncChatHistoryWithDatabase, clearUserChatHistory } from '../services/chatHistoryService';
+import { checkDbStatus, getCurrentUser } from '../services/authService';
 
 const MIC_STATES = { idle: 'idle', ready: 'ready', listening: 'listening', processing: 'processing' };
 let lastGlobalProcessedSpeechTs = Date.now();
@@ -109,6 +111,9 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   const [memoryCount, setMemoryCount] = useState(4);
   const [isTtsEnabled, setIsTtsEnabled] = useState(() => localStorage.getItem('ultron_tts_enabled') !== 'false');
   const [isUltronTalking, setIsUltronTalking] = useState(false);
+  const [dbStatus, setDbStatus] = useState({ connected: false, engine: 'Detecting...' });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState('');
   const messagesEndRef = useRef(null);
   const processedSpeechTsRef = useRef(null);
   const loadingRef = useRef(loading);
@@ -117,6 +122,46 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   activeAgentRef.current = activeAgent;
   const activeBotNameRef = useRef(activeBotObj.name);
   activeBotNameRef.current = activeBotObj.name;
+
+  // Query database status and sync history on mount & auth change
+  useEffect(() => {
+    checkDbStatus().then(status => {
+      if (status) setDbStatus(status);
+    });
+
+    const loadAndSyncHistory = async () => {
+      try {
+        const remoteMessages = await fetchUserChatHistory();
+        if (Array.isArray(remoteMessages) && remoteMessages.length > 0) {
+          setMessages(remoteMessages);
+        }
+      } catch (err) {
+        console.warn('[ChatDrawer] Auto-sync history notice:', err);
+      }
+    };
+
+    loadAndSyncHistory();
+
+    const handleHistorySynced = (e) => {
+      if (e.detail?.messages && Array.isArray(e.detail.messages)) {
+        setMessages(e.detail.messages);
+      }
+    };
+
+    const handleAuthChange = () => {
+      loadAndSyncHistory();
+      checkDbStatus().then(status => {
+        if (status) setDbStatus(status);
+      });
+    };
+
+    window.addEventListener('ultron-history-synced', handleHistorySynced);
+    window.addEventListener('ultron-auth-change', handleAuthChange);
+    return () => {
+      window.removeEventListener('ultron-history-synced', handleHistorySynced);
+      window.removeEventListener('ultron-auth-change', handleAuthChange);
+    };
+  }, []);
 
   useEffect(() => {
     const onStart = () => setIsUltronTalking(true);
@@ -158,7 +203,9 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
   }, [messages, loading]);
 
   const addMessage = useCallback((sender, text, botName = activeBotObj.name, extraProps = {}) => {
-    setMessages(prev => [...prev, { id: Date.now() + Math.random(), sender, text, botName, ...extraProps }]);
+    const newMsg = { id: Date.now() + Math.random(), sender, text, botName, ...extraProps };
+    setMessages(prev => [...prev, newMsg]);
+    saveMessageToDatabase(newMsg).catch(() => {});
   }, [activeBotObj.name]);
 
   const handleSend = useCallback(async (textOverride) => {
@@ -303,15 +350,36 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     URL.revokeObjectURL(url);
   };
 
-  const handleClearChat = () => {
-    if (window.confirm("Clear conversation history?")) {
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncStatusMsg('Syncing PostgreSQL...');
+    try {
+      const res = await syncChatHistoryWithDatabase(messages);
+      if (res && res.success && Array.isArray(res.messages) && res.messages.length > 0) {
+        setMessages(res.messages);
+        setSyncStatusMsg(`Synced (${res.messages.length} msgs) ✓`);
+      } else {
+        setSyncStatusMsg('Synced ✓');
+      }
+      checkDbStatus().then(st => st && setDbStatus(st));
+    } catch (e) {
+      setSyncStatusMsg('Sync error');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncStatusMsg(''), 2500);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (window.confirm("Clear conversation history from PostgreSQL and local cache?")) {
+      await clearUserChatHistory();
       const resetMessages = [
         {
           id: 1,
           sender: 'ULTRON',
           botName: activeBotObj.name,
           isWelcome: true,
-          text: `Chat history cleared.\n\nReady for your next query or command!`
+          text: `Chat history cleared from database.\n\nReady for your next query or command!`
         }
       ];
       setMessages(resetMessages);
@@ -368,6 +436,23 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
               <span>Web Search Active</span>
             </div>
           )}
+
+          {/* PostgreSQL Sync Status Pill */}
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono border transition-all cursor-pointer ${
+              dbStatus.connected
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-300 hover:bg-cyan-900/40'
+            }`}
+            title="PostgreSQL sync status across Web & .exe. Click to sync conversation history now."
+          >
+            <Database className="w-2.5 h-2.5 text-cyan-400" />
+            <span>{syncStatusMsg || (dbStatus.connected ? 'PostgreSQL Synced' : dbStatus.engine || 'DB Ready')}</span>
+            <RefreshCw className={`w-2.5 h-2.5 text-slate-400 ${isSyncing ? 'animate-spin text-cyan-400' : ''}`} />
+          </button>
         </div>
 
         {/* Right Window Action Icons */}

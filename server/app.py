@@ -22,10 +22,24 @@ import concurrent.futures
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
+try:
+    from db import db
+except ImportError:
+    try:
+        from server.db import db
+    except ImportError:
+        db = None
+
 HOST = '0.0.0.0'
 PORT = 8000
 
-MEMORY_FILE = os.path.join(os.path.dirname(__file__), 'memory_bank.json')
+def get_base_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = get_base_dir()
+MEMORY_FILE = os.path.join(BASE_DIR, 'memory_bank.json')
 
 def load_memories():
     if os.path.exists(MEMORY_FILE):
@@ -1599,6 +1613,8 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+
         if parsed.path == '/health' or parsed.path == '/':
             self._send_json(200, {
                 "status": "online",
@@ -1606,6 +1622,34 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                 "python_version": sys.version,
                 "backend": "Python 3 Standard Engine"
             })
+        elif parsed.path == '/api/db/status':
+            if db:
+                self._send_json(200, db.get_status())
+            else:
+                self._send_json(500, {"success": False, "error": "Database module not available"})
+        elif parsed.path == '/api/auth/me':
+            auth_header = self.headers.get('Authorization', '')
+            token = auth_header.replace('Bearer ', '').strip() if auth_header else (qs.get('token', [''])[0])
+            if db and token:
+                user = db.get_user_by_token(token)
+                if user:
+                    self._send_json(200, {"success": True, "user": user})
+                else:
+                    self._send_json(401, {"success": False, "message": "Invalid or expired session token"})
+            else:
+                self._send_json(400, {"success": False, "message": "Missing authentication token"})
+        elif parsed.path == '/api/chat/history':
+            email = qs.get('email', [''])[0] or qs.get('userEmail', [''])[0] or qs.get('userId', [''])[0]
+            limit_str = qs.get('limit', ['200'])[0]
+            try:
+                limit = int(limit_str)
+            except ValueError:
+                limit = 200
+            if db:
+                messages = db.get_chat_history(email, limit=limit)
+                self._send_json(200, {"success": True, "messages": messages})
+            else:
+                self._send_json(200, {"success": True, "messages": []})
         elif parsed.path == '/api/memory':
             memories = load_memories()
             self._send_json(200, {"success": True, "memories": memories})
@@ -1627,50 +1671,87 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
 
         print(f"[Python Backend] POST {parsed.path} - body: {body}")
 
-        if parsed.path == '/api/stt':
-            audio_b64 = body.get('audio', '')
+        if parsed.path == '/api/auth/signup':
+            name = body.get('name', '')
+            email = body.get('email', '')
+            password = body.get('password', '')
+            passcode = body.get('passcode')
+            if not email or not password:
+                self._send_json(400, {"success": False, "message": "Email and password are required"})
+            elif db:
+                res = db.register_user(name, email, password, passcode)
+                status_code = 200 if res.get('success') else 400
+                self._send_json(status_code, res)
+            else:
+                self._send_json(500, {"success": False, "message": "Database service unavailable"})
+
+        elif parsed.path == '/api/auth/signin':
+            email = body.get('email', '')
+            password = body.get('password', '')
+            if not email or not password:
+                self._send_json(400, {"success": False, "message": "Email and password are required"})
+            elif db:
+                res = db.authenticate_user(email, password)
+                status_code = 200 if res.get('success') else 401
+                self._send_json(status_code, res)
+            else:
+                self._send_json(500, {"success": False, "message": "Database service unavailable"})
+
+        elif parsed.path == '/api/auth/passcode':
+            passcode = body.get('passcode', '')
+            if not passcode:
+                self._send_json(400, {"success": False, "message": "Master passcode is required"})
+            elif db:
+                res = db.authenticate_passcode(passcode)
+                status_code = 200 if res.get('success') else 401
+                self._send_json(status_code, res)
+            else:
+                self._send_json(500, {"success": False, "message": "Database service unavailable"})
+
+        elif parsed.path == '/api/chat/message':
+            email = body.get('email') or body.get('userEmail') or body.get('userId')
+            sender = body.get('sender', 'User')
+            bot_id = body.get('botId', 'orchestrator')
+            bot_name = body.get('botName', 'ULTRON')
+            message = body.get('message') or body.get('text', '')
+            extra_data = body.get('extraProps', {})
+            if db and message:
+                saved = db.save_chat_message(email, sender, bot_id, bot_name, message, extra_data=extra_data)
+                self._send_json(200, {"success": True, "message": saved})
+            else:
+                self._send_json(400, {"success": False, "message": "Invalid message payload or database offline"})
+
+        elif parsed.path == '/api/chat/sync':
+            email = body.get('email') or body.get('userEmail') or body.get('userId')
+            client_messages = body.get('messages', [])
+            if db:
+                res = db.sync_chat_history(email, client_messages)
+                self._send_json(200, res)
+            else:
+                self._send_json(200, {"success": True, "messages": client_messages, "totalCount": len(client_messages)})
+
+        elif parsed.path == '/api/chat/clear':
+            email = body.get('email') or body.get('userEmail') or body.get('userId')
+            if db:
+                res = db.clear_chat_history(email)
+                self._send_json(200, res)
+            else:
+                self._send_json(200, {"success": True, "message": "Chat history cleared"})
+
+        elif parsed.path == '/api/stt':
             transcript = ""
-            if audio_b64:
+            if sys.platform == 'win32':
                 try:
-                    import base64
-                    import tempfile
-                    import speech_recognition as sr
-
-                    raw_b64 = audio_b64.split(',', 1)[1] if ',' in audio_b64 else audio_b64
-                    audio_bytes = base64.b64decode(raw_b64)
-
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
-                        tmp.write(audio_bytes)
-                        tmp_path = tmp.name
-
-                    try:
-                        r = sr.Recognizer()
-                        r.energy_threshold = 300
-                        r.dynamic_energy_threshold = True
-                        with sr.AudioFile(tmp_path) as source:
-                            audio_data = r.record(source)
-                            transcript = r.recognize_google(audio_data)
-                            print(f"[Python STT Transcribed]: '{transcript}'")
-                    except sr.UnknownValueError:
-                        print("[Python STT] Speech was unintelligible")
-                    except sr.RequestError as e:
-                        print(f"[Python STT] Google Speech API request failed: {e}")
-                    except Exception as e:
-                        print(f"[Python STT] Audio parsing error: {e}")
-                    finally:
-                        if os.path.exists(tmp_path):
-                            try: os.remove(tmp_path)
-                            except Exception: pass
-                except Exception as err:
-                    print(f"[Python STT] Processing error: {err}")
-
-            if not transcript:
-                transcript = "Hello ULTRON"
+                    cmd = 'powershell -NoProfile -NonInteractive -Command "Add-Type -AssemblyName System.Speech; $e = New-Object System.Speech.Recognition.SpeechRecognitionEngine; $e.SetInputToDefaultAudioDevice(); $e.LoadGrammar((New-Object System.Speech.Recognition.DictationGrammar)); $r = $e.Recognize([TimeSpan]::FromSeconds(6)); if ($r) { Write-Output $r.Text }"'
+                    p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+                    transcript = p.stdout.strip()
+                except Exception as e:
+                    print(f"[Python STT] Windows Speech Recognition error: {e}")
 
             self._send_json(200, {
-                "success": True,
+                "success": bool(transcript),
                 "transcript": transcript,
-                "engine": "Python Google Speech Recognition Engine"
+                "engine": "Windows Native Speech Recognition"
             })
 
         elif parsed.path == '/api/execute':
@@ -1699,6 +1780,7 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
         elif parsed.path == '/api/chat':
             prompt = body.get('prompt', '')
             bot_id = body.get('botId', 'orchestrator')
+            user_email = body.get('userEmail') or body.get('email')
             p_lower = prompt.lower().strip()
             has_code_intent = any(k in p_lower for k in EXPLICIT_CODE_KEYWORDS)
 
@@ -1714,6 +1796,14 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                     response_text = query_llm_api(prompt, bot_id)
                     if not response_text:
                         response_text = generate_smart_code_fallback(prompt, bot_id)
+
+            # Auto-save conversation to PostgreSQL database
+            if db and user_email and prompt:
+                try:
+                    db.save_chat_message(user_email, 'User', bot_id, 'User', prompt)
+                    db.save_chat_message(user_email, 'ULTRON', bot_id, 'ULTRON', response_text)
+                except Exception as save_err:
+                    print(f"[Ultron DB] Auto-save error: {save_err}")
 
             self._send_json(200, {"success": True, "response": response_text})
 
@@ -1818,7 +1908,12 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                 app_commands = {
                     'chrome': 'start chrome',
                     'google chrome': 'start chrome',
+                    'browser': 'start chrome',
+                    'web browser': 'start chrome',
                     'notepad': 'start notepad',
+                    'notebook': 'start notepad',
+                    'notes': 'start notepad',
+                    'text editor': 'start notepad',
                     'calculator': 'start calc',
                     'calc': 'start calc',
                     'cmd': 'start cmd',
@@ -1828,10 +1923,12 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                     'explorer': 'start explorer',
                     'file explorer': 'start explorer',
                     'files': 'start explorer',
+                    'my files': 'start explorer',
                     'vscode': 'start code',
                     'vs code': 'start code',
                     'code': 'start code',
                     'spotify': 'start spotify:',
+                    'music': 'start spotify:',
                     'word': 'start winword',
                     'microsoft word': 'start winword',
                     'excel': 'start excel',
@@ -1850,6 +1947,8 @@ class UltronPythonHandler(BaseHTTPRequestHandler):
                     'discord': 'start discord:',
                     'whatsapp': 'start whatsapp:',
                     'snipping tool': 'start snippingtool',
+                    'camera': 'start microsoft.windows.camera:',
+                    'store': 'start ms-windows-store:',
                 }
 
                 is_win = sys.platform == 'win32'

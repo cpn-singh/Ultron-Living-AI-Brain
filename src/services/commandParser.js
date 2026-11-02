@@ -7,6 +7,7 @@
 import { createFile, createFolder, listDirectory, openFile, launchApp, openExternalUrl } from './fileSystemService';
 import { executeMobileAppLaunchCommand } from './mobileAppLauncherService';
 import { musicPlayer } from './musicPlayerService';
+import { tryHandleDesktopCommand } from '../desktop/desktopManager';
 
 // ──────────────────────────── INTENT PATTERNS ────────────────────────────
 
@@ -290,6 +291,11 @@ export async function parseAndExecuteCommand(rawText, context = {}) {
 
   if (!isCodeOrQueryIntent || isDirectColabLaunch) {
     if (testAny(text, PATTERNS.LAUNCH_APP)) {
+      // 1. If running on Desktop PC, launch native Windows software directly!
+      const desktopResult = await tryHandleDesktopCommand(text);
+      if (desktopResult) return desktopResult;
+
+      // 2. Otherwise (Browser Mode), run original mobile/browser launch unchanged
       const schemeResult = await executeMobileAppLaunchCommand(text);
       if (schemeResult) return schemeResult;
 
