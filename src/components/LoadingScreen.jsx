@@ -40,7 +40,7 @@ export default function LoadingScreen({ onComplete }) {
     return () => clearInterval(interval);
   }, [onComplete]);
 
-  // 2. Full Homepage 3D Atom Brain behind ULTRON, smoothly rotating
+  // 2. Full Homepage 3D Atom Brain behind ULTRON, smoothly rotating & fully responsive
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -48,9 +48,26 @@ export default function LoadingScreen({ onComplete }) {
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
 
+    // Responsive Camera Z calculation for mobile portrait, tablet & desktop aspect ratios
+    function getResponsiveCameraZ(w, h) {
+      const aspect = w / h;
+      const radius = 215; // Bounding radius of outer orbits
+      const vFOV = (52 * Math.PI) / 180;
+
+      if (aspect < 1) {
+        // Mobile / Portrait: calculate distance so orbit rings never clip horizontally
+        return Math.max(560, (radius / (aspect * Math.tan(vFOV / 2))) * 1.14);
+      } else {
+        // Landscape / Desktop
+        if (w < 640) return 580;
+        if (w < 1024) return 500;
+        return 440;
+      }
+    }
+
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 2000);
-    camera.position.z = 440;
+    const camera = new THREE.PerspectiveCamera(52, width / height, 0.1, 2500);
+    camera.position.z = getResponsiveCameraZ(width, height);
 
     let renderer;
     try {
@@ -224,6 +241,7 @@ export default function LoadingScreen({ onComplete }) {
       width = container.clientWidth || window.innerWidth;
       height = container.clientHeight || window.innerHeight;
       camera.aspect = width / height;
+      camera.position.z = getResponsiveCameraZ(width, height);
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
     };
@@ -243,7 +261,7 @@ export default function LoadingScreen({ onComplete }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black select-none overflow-hidden transition-all duration-700 ease-out ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black select-none overflow-hidden h-[100dvh] min-h-screen w-full pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] px-[env(safe-area-inset-left,0px)] transition-all duration-700 ease-out ${
         isDone ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100 pointer-events-auto'
       }`}
       aria-label="ULTRON Initializing"
@@ -251,17 +269,17 @@ export default function LoadingScreen({ onComplete }) {
       {/* Exact Homepage 3D Model Canvas Mounted Fullscreen Behind ULTRON */}
       <div 
         ref={mountRef} 
-        className="absolute inset-0 pointer-events-none z-0"
+        className="absolute inset-0 pointer-events-none z-0 w-full h-full"
         aria-hidden="true" 
       />
 
-      {/* Front Center HUD Overlay in Pure Contrast */}
-      <div className="relative z-10 flex flex-col items-center justify-center max-w-sm w-full px-6">
+      {/* Front Center HUD Overlay in Pure Contrast - Fully Responsive Width */}
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-[92vw] sm:max-w-sm px-4 sm:px-6">
         
-        {/* 3D Extruded ULTRON Typography */}
-        <div className="flex flex-col items-center text-center">
+        {/* Responsive 3D Extruded ULTRON Typography */}
+        <div className="flex flex-col items-center text-center w-full">
           <h1 
-            className="text-5xl sm:text-6xl font-extrabold tracking-[0.32em] text-white pl-[0.32em]"
+            className="text-4xl xs:text-5xl sm:text-6xl font-extrabold tracking-[0.24em] sm:tracking-[0.32em] text-white pl-[0.24em] sm:pl-[0.32em] select-none"
             style={{
               textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 8px 24px rgba(0,0,0,0.9), 0 0 35px rgba(255,255,255,0.25)'
             }}
@@ -269,28 +287,28 @@ export default function LoadingScreen({ onComplete }) {
             ULTRON
           </h1>
 
-          <div className="flex items-center gap-2 mt-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-            <span className="text-[11px] font-mono tracking-widest text-slate-300 uppercase font-semibold">
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-2.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-mono tracking-wider sm:tracking-widest text-slate-300 uppercase font-semibold">
               Living AI Brain • 2026 Core
             </span>
           </div>
         </div>
 
-        {/* Diagnostic Loading Progress HUD */}
-        <div className="w-full mt-10 flex flex-col gap-3">
+        {/* Responsive Diagnostic Loading Progress HUD */}
+        <div className="w-full mt-8 sm:mt-10 flex flex-col gap-2.5 sm:gap-3">
           {/* Percentage & Status Header */}
           <div className="flex items-baseline justify-between text-xs">
-            <span className="text-slate-300 font-mono text-[11px] truncate max-w-[220px]">
+            <span className="text-slate-300 font-mono text-[10px] sm:text-[11px] truncate max-w-[68%] sm:max-w-[220px]">
               {stage}
             </span>
-            <span className="text-white font-mono font-bold text-sm tracking-tight tabular-nums">
+            <span className="text-white font-mono font-bold text-xs sm:text-sm tracking-tight tabular-nums">
               {progress}%
             </span>
           </div>
 
           {/* Hairline Progress Track */}
-          <div className="w-full h-1 bg-slate-900 rounded-full overflow-hidden border border-white/10 relative">
+          <div className="w-full h-1 sm:h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/10 relative">
             <div
               className="h-full bg-gradient-to-r from-cyan-400 via-sky-300 to-white transition-all duration-75 ease-out rounded-full shadow-[0_0_12px_rgba(56,189,248,0.8)]"
               style={{ width: `${progress}%` }}
@@ -298,7 +316,7 @@ export default function LoadingScreen({ onComplete }) {
           </div>
 
           {/* Bottom Micro Status Readout */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1">
+          <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-mono text-slate-400 pt-0.5 sm:pt-1">
             <span>MEM: 16.4 GB OK</span>
             <span>SHADERS: ONLINE</span>
             <span>PGSQL: SYNC</span>
