@@ -13,6 +13,7 @@ import AuthModal from './components/AuthModal';
 import BotDockBar from './components/BotDockBar';
 import BenchmarkPanel from './components/BenchmarkPanel';
 import MusicPlayer from './components/MusicPlayer';
+import LoadingScreen from './components/LoadingScreen';
 import { stopSpeech } from './services/voiceTtsService';
 import { 
   ZoomIn, ZoomOut, RotateCcw, Compass, ChevronRight, ChevronLeft, X 
@@ -37,6 +38,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speechTriggerText, setSpeechTriggerText] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleAuthChange = (e) => {
@@ -149,6 +151,11 @@ export default function App() {
   return (
     <div className="relative w-screen h-[100dvh] min-h-screen overflow-hidden bg-slate-950 flex flex-col select-none font-sans text-slate-100">
       
+      {/* Page Load 3D Preloader Screen with Percentage & ULTRON 3D Effects */}
+      {isLoading && (
+        <LoadingScreen onComplete={() => setIsLoading(false)} />
+      )}
+
       {/* 3D Cybernetic ULTRON Brain Canvas Background */}
       <div className="fixed inset-0 pointer-events-auto z-0">
         <div className="brain-canvas pointer-events-auto w-full h-full">
