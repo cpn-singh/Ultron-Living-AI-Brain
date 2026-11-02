@@ -3,18 +3,30 @@
  * Seamlessly synchronizes conversation threads between Web & Electron .exe
  */
 
-import { getBackendUrl, getCurrentUser } from './authService';
+import { getBackendUrl, getCurrentUser, isLocalEnvironment, fetchWithTimeout } from './authService';
 
 export async function fetchUserChatHistory(userOverride = null) {
   const user = userOverride || getCurrentUser();
   const email = user?.email || 'guest@ultron.ai';
+
+  if (!isLocalEnvironment() && !localStorage.getItem('ultron_backend_url')) {
+    try {
+      const local = localStorage.getItem('ultron_chat_history');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   const backendUrl = getBackendUrl();
 
   try {
-    const res = await fetch(`${backendUrl}/api/chat/history?email=${encodeURIComponent(email)}&limit=300`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/chat/history?email=${encodeURIComponent(email)}&limit=300`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-    });
+    }, 2000);
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
@@ -40,6 +52,11 @@ export async function fetchUserChatHistory(userOverride = null) {
 export async function saveMessageToDatabase(messageObj, userOverride = null) {
   const user = userOverride || getCurrentUser();
   const email = user?.email || 'guest@ultron.ai';
+
+  if (!isLocalEnvironment() && !localStorage.getItem('ultron_backend_url')) {
+    return null;
+  }
+
   const backendUrl = getBackendUrl();
 
   try {
@@ -48,46 +65,50 @@ export async function saveMessageToDatabase(messageObj, userOverride = null) {
       sender: messageObj.sender || 'User',
       botId: messageObj.botId || 'orchestrator',
       botName: messageObj.botName || 'ULTRON',
-      message: messageObj.text || '',
-      extraProps: {
-        isWelcome: Boolean(messageObj.isWelcome),
-        id: messageObj.id
-      }
+      text: messageObj.text || '',
+      mode: messageObj.mode || 'chat',
+      metadata: messageObj.metadata || {}
     };
 
-    const res = await fetch(`${backendUrl}/api/chat/message`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/chat/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    });
+    }, 2000);
 
     if (res.ok) {
       return await res.json();
     }
   } catch (err) {
-    console.warn('[ChatHistoryService] Save message to DB warning:', err.message);
+    console.warn('[ChatHistoryService] Save message error (using local cache):', err.message);
   }
+
   return null;
 }
 
 export async function syncChatHistoryWithDatabase(clientMessages, userOverride = null) {
   const user = userOverride || getCurrentUser();
   const email = user?.email || 'guest@ultron.ai';
-  const backendUrl = getBackendUrl();
 
   if (!Array.isArray(clientMessages) || clientMessages.length === 0) {
     return { success: true, messages: [] };
   }
 
+  if (!isLocalEnvironment() && !localStorage.getItem('ultron_backend_url')) {
+    return { success: true, messages: clientMessages };
+  }
+
+  const backendUrl = getBackendUrl();
+
   try {
-    const res = await fetch(`${backendUrl}/api/chat/sync`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/chat/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userEmail: email,
         messages: clientMessages
       })
-    });
+    }, 2500);
 
     if (res.ok) {
       const data = await res.json();
@@ -107,15 +128,17 @@ export async function syncChatHistoryWithDatabase(clientMessages, userOverride =
 export async function clearUserChatHistory(userOverride = null) {
   const user = userOverride || getCurrentUser();
   const email = user?.email || 'guest@ultron.ai';
-  const backendUrl = getBackendUrl();
 
-  try {
-    await fetch(`${backendUrl}/api/chat/clear`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userEmail: email })
-    });
-  } catch (e) {}
+  if (isLocalEnvironment() || localStorage.getItem('ultron_backend_url')) {
+    const backendUrl = getBackendUrl();
+    try {
+      await fetchWithTimeout(`${backendUrl}/api/chat/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: email })
+      }, 1500);
+    } catch (e) {}
+  }
 
   localStorage.removeItem('ultron_chat_history');
   return { success: true };

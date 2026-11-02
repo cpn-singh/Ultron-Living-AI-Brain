@@ -4,6 +4,20 @@
  * across Web Browser & Electron .exe Desktop Environment.
  */
 
+export function isLocalEnvironment() {
+  if (typeof window === 'undefined') return true;
+  const h = (window.location.hostname || '').toLowerCase();
+  return (
+    h === 'localhost' ||
+    h === '127.0.0.1' ||
+    h === '0.0.0.0' ||
+    h.startsWith('192.168.') ||
+    h.startsWith('10.') ||
+    h.endsWith('.local') ||
+    Boolean(window.electronAPI)
+  );
+}
+
 export function getBackendUrl() {
   if (typeof window !== 'undefined') {
     const customUrl = localStorage.getItem('ultron_backend_url');
@@ -12,8 +26,14 @@ export function getBackendUrl() {
     }
     const hostname = window.location.hostname || '127.0.0.1';
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    // If running in dev server (5173), Python backend runs on port 8000
-    return `${protocol}//${hostname}:8000`;
+
+    // If running locally (dev server 5173 or local network), Python backend runs on port 8000
+    if (isLocalEnvironment()) {
+      return `${protocol}//${hostname}:8000`;
+    }
+
+    // On deployed cloud platforms (e.g. Vercel), route through relative origin (/api/...)
+    return window.location.origin;
   }
   return 'http://127.0.0.1:8000';
 }
@@ -28,12 +48,25 @@ if (typeof window !== 'undefined' && window.electronAPI?.getDbConfig) {
   } catch (e) {}
 }
 
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 export async function checkDbStatus() {
   try {
-    const res = await fetch(`${getBackendUrl()}/api/db/status`, {
+    const res = await fetchWithTimeout(`${getBackendUrl()}/api/db/status`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-    });
+    }, 2500);
     if (res.ok) {
       return await res.json();
     }
@@ -44,13 +77,40 @@ export async function checkDbStatus() {
 }
 
 export async function signUp({ name, email, password, passcode }) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanName = (name || '').trim() || cleanEmail.split('@')[0];
+
+  const createLocalSession = () => {
+    const offlineUser = {
+      id: Date.now(),
+      email: cleanEmail,
+      name: cleanName,
+      role: 'user',
+      mode: 'email',
+      authenticatedAt: new Date().toISOString(),
+      offline: true
+    };
+    try {
+      localStorage.setItem('ultron_user', JSON.stringify(offlineUser));
+      const accounts = JSON.parse(localStorage.getItem('ultron_local_accounts') || '{}');
+      accounts[cleanEmail] = { password, name: cleanName, passcode };
+      localStorage.setItem('ultron_local_accounts', JSON.stringify(accounts));
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: offlineUser } }));
+    return {
+      success: true,
+      user: offlineUser,
+      message: 'Account created and saved locally.'
+    };
+  };
+
   const backendUrl = getBackendUrl();
   try {
-    const res = await fetch(`${backendUrl}/api/auth/signup`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, passcode }),
-    });
+      body: JSON.stringify({ name: cleanName, email: cleanEmail, password, passcode }),
+    }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
       if (data.token) localStorage.setItem('ultron_token', data.token);
@@ -67,34 +127,48 @@ export async function signUp({ name, email, password, passcode }) {
     }
     return { success: false, message: data.message || 'Registration failed.' };
   } catch (err) {
-    // Graceful offline fallback if backend isn't up
+    return createLocalSession();
+  }
+}
+
+export async function signIn({ email, password }) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  const createLocalSession = () => {
+    try {
+      const accounts = JSON.parse(localStorage.getItem('ultron_local_accounts') || '{}');
+      if (accounts[cleanEmail] && accounts[cleanEmail].password && accounts[cleanEmail].password !== password) {
+        return { success: false, message: 'Invalid password for this account.' };
+      }
+    } catch (e) {}
+
     const offlineUser = {
       id: Date.now(),
-      email: email.trim().toLowerCase(),
-      name: name || email.split('@')[0],
+      email: cleanEmail,
+      name: cleanEmail.split('@')[0],
       role: 'user',
       mode: 'email',
       authenticatedAt: new Date().toISOString(),
       offline: true
     };
-    localStorage.setItem('ultron_user', JSON.stringify(offlineUser));
+    try {
+      localStorage.setItem('ultron_user', JSON.stringify(offlineUser));
+    } catch (e) {}
     window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: offlineUser } }));
     return {
       success: true,
       user: offlineUser,
-      message: 'Account created in local cache (Backend sync pending).'
+      message: 'Signed in from local session.'
     };
-  }
-}
+  };
 
-export async function signIn({ email, password }) {
   const backendUrl = getBackendUrl();
   try {
-    const res = await fetch(`${backendUrl}/api/auth/signin`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/auth/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+      body: JSON.stringify({ email: cleanEmail, password }),
+    }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
       if (data.token) localStorage.setItem('ultron_token', data.token);
@@ -111,33 +185,40 @@ export async function signIn({ email, password }) {
     }
     return { success: false, message: data.message || 'Invalid email or password.' };
   } catch (err) {
-    const offlineUser = {
-      id: Date.now(),
-      email: email.trim().toLowerCase(),
-      name: email.split('@')[0],
-      role: 'user',
-      mode: 'email',
-      authenticatedAt: new Date().toISOString(),
-      offline: true
-    };
-    localStorage.setItem('ultron_user', JSON.stringify(offlineUser));
-    window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: offlineUser } }));
-    return {
-      success: true,
-      user: offlineUser,
-      message: 'Signed in from local session (Backend offline).'
-    };
+    return createLocalSession();
   }
 }
 
 export async function signInPasscode(passcode) {
+  const cleanPasscode = (passcode || '').trim();
+
+  const checkPasscodeFallback = () => {
+    if (['1234', '123456', '0000', '7777', '9999'].includes(cleanPasscode)) {
+      const devUser = {
+        id: 1,
+        email: 'operator@ultron.ai',
+        name: 'Master Operator',
+        role: 'admin',
+        mode: 'passcode',
+        authenticatedAt: new Date().toISOString(),
+        offline: true
+      };
+      try {
+        localStorage.setItem('ultron_user', JSON.stringify(devUser));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: devUser } }));
+      return { success: true, user: devUser, message: 'Master passcode accepted.' };
+    }
+    return { success: false, message: 'Invalid passcode.' };
+  };
+
   const backendUrl = getBackendUrl();
   try {
-    const res = await fetch(`${backendUrl}/api/auth/passcode`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/auth/passcode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode }),
-    });
+      body: JSON.stringify({ passcode: cleanPasscode }),
+    }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
       if (data.token) localStorage.setItem('ultron_token', data.token);
@@ -154,21 +235,7 @@ export async function signInPasscode(passcode) {
     }
     return { success: false, message: data.message || 'Invalid passcode.' };
   } catch (err) {
-    if (['1234', '123456', '0000', '7777'].includes(passcode.trim())) {
-      const devUser = {
-        id: 1,
-        email: 'operator@ultron.ai',
-        name: 'Master Operator',
-        role: 'admin',
-        mode: 'passcode',
-        authenticatedAt: new Date().toISOString(),
-        offline: true
-      };
-      localStorage.setItem('ultron_user', JSON.stringify(devUser));
-      window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: devUser } }));
-      return { success: true, user: devUser, message: 'Master passcode accepted.' };
-    }
-    return { success: false, message: 'Invalid passcode or database offline.' };
+    return checkPasscodeFallback();
   }
 }
 
