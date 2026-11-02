@@ -10,7 +10,6 @@ import SettingsModal from './components/SettingsModal';
 import FileManagerPanel from './components/FileManagerPanel';
 import VoiceOverlay from './components/VoiceOverlay';
 import AuthModal from './components/AuthModal';
-import AuthGate from './components/AuthGate';
 import BotDockBar from './components/BotDockBar';
 import BenchmarkPanel from './components/BenchmarkPanel';
 import MusicPlayer from './components/MusicPlayer';
@@ -37,6 +36,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speechTriggerText, setSpeechTriggerText] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
     const handleAuthChange = (e) => {
@@ -49,8 +49,15 @@ export default function App() {
         stopSpeech();
       }
     };
+    const handleAuthReq = () => {
+      setShowAuth(true);
+    };
     window.addEventListener('ultron-auth-change', handleAuthChange);
-    return () => window.removeEventListener('ultron-auth-change', handleAuthChange);
+    window.addEventListener('ultron-auth-required', handleAuthReq);
+    return () => {
+      window.removeEventListener('ultron-auth-change', handleAuthChange);
+      window.removeEventListener('ultron-auth-required', handleAuthReq);
+    };
   }, []);
 
   useEffect(() => {
@@ -59,13 +66,42 @@ export default function App() {
     return () => window.removeEventListener('toggle-fleet-sidebar', handleToggle);
   }, []);
 
+  const requireAuth = useCallback((actionCallback) => {
+    if (currentUser && currentUser.email && currentUser.mode !== 'guest') {
+      if (actionCallback) actionCallback();
+      return true;
+    }
+    if (actionCallback) {
+      setPendingAction(() => actionCallback);
+    }
+    setShowAuth(true);
+    return false;
+  }, [currentUser]);
+
+  const handleAuthenticated = useCallback((user) => {
+    setCurrentUser(user);
+    setShowAuth(false);
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  }, [pendingAction]);
+
   const handleTabSwitch = useCallback((tab) => {
-    if (tab !== 'chat') {
+    if (!tab) {
+      setActiveTab(null);
       setSpeechTriggerText(null);
       stopSpeech();
+      return;
     }
-    setActiveTab(tab);
-  }, []);
+    requireAuth(() => {
+      if (tab !== 'chat') {
+        setSpeechTriggerText(null);
+        stopSpeech();
+      }
+      setActiveTab(tab);
+    });
+  }, [requireAuth]);
 
   const lastProcessedSpeechRef = useRef('');
   const lastProcessedSpeechTsRef = useRef(0);
@@ -80,10 +116,12 @@ export default function App() {
       }
       lastProcessedSpeechRef.current = clean;
       lastProcessedSpeechTsRef.current = now;
-      setSpeechTriggerText({ text: clean, ts: now });
-      setActiveTab('chat');
+      requireAuth(() => {
+        setSpeechTriggerText({ text: clean, ts: now });
+        setActiveTab('chat');
+      });
     }
-  }, []);
+  }, [requireAuth]);
 
   const handleClearSpeechTrigger = useCallback(() => {
     setSpeechTriggerText(null);
@@ -102,25 +140,21 @@ export default function App() {
   };
 
   const handleLaunchCodeSwarm = () => {
-    setSwarmPreset('code');
-    setActiveTab('swarm');
+    requireAuth(() => {
+      setSwarmPreset('code');
+      setActiveTab('swarm');
+    });
   };
 
   return (
     <div className="relative w-screen h-[100dvh] min-h-screen overflow-hidden bg-slate-950 flex flex-col select-none font-sans text-slate-100">
       
-      {/* 1. If User is NOT Logged In: Strict Access Gate Mode */}
-      {!currentUser ? (
-        <AuthGate onAuthenticated={(user) => setCurrentUser(user)} />
-      ) : (
-        /* 2. FULL ULTRON CORE UNLOCKED FOR AUTHENTICATED USER */
-        <>
-          {/* 3D Cybernetic ULTRON Brain Canvas Background */}
-          <div className="fixed inset-0 pointer-events-auto z-0">
-            <div className="brain-canvas pointer-events-auto w-full h-full">
-              <BrainCanvas activeAgent={activeAgent} activeTab={activeTab} />
-            </div>
-          </div>
+      {/* 3D Cybernetic ULTRON Brain Canvas Background */}
+      <div className="fixed inset-0 pointer-events-auto z-0">
+        <div className="brain-canvas pointer-events-auto w-full h-full">
+          <BrainCanvas activeAgent={activeAgent} activeTab={activeTab} />
+        </div>
+      </div>
 
           {/* Floating 3D Brain Navigation Controls Toolbar (Bottom Left) */}
           <div
@@ -188,10 +222,10 @@ export default function App() {
           {/* Top Header Navigation */}
           <Navbar 
             activeAgent={activeAgent} 
-            setActiveAgent={setActiveAgent}
+            setActiveAgent={(id) => requireAuth(() => setActiveAgent(id))}
             activeTab={activeTab} 
             setActiveTab={handleTabSwitch} 
-            onOpenSettings={() => setShowSettings(true)}
+            onOpenSettings={() => requireAuth(() => setShowSettings(true))}
             onOpenAuth={() => setShowAuth(true)}
             onToggleMobileSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
@@ -218,8 +252,10 @@ export default function App() {
                 <AgentSelector 
                   activeAgent={activeAgent} 
                   setActiveAgent={(id) => {
-                    setActiveAgent(id);
-                    setSidebarOpen(false);
+                    requireAuth(() => {
+                      setActiveAgent(id);
+                      setSidebarOpen(false);
+                    });
                   }} 
                 />
               </aside>
@@ -263,10 +299,15 @@ export default function App() {
             activeTab={activeTab}
             setActiveTab={handleTabSwitch} 
             onLaunchCodeSwarm={handleLaunchCodeSwarm}
+            onRequireAuth={requireAuth}
           />
 
           {/* Floating Microphone Action Button & Equalizer Overlay */}
-          <VoiceOverlay activeTab={activeTab} onSpeechResult={handleSpeechResult} />
+          <VoiceOverlay 
+            activeTab={activeTab} 
+            onSpeechResult={handleSpeechResult} 
+            onRequireAuth={requireAuth}
+          />
 
           {/* Global Interactive Music Player */}
           <MusicPlayer />
@@ -277,10 +318,15 @@ export default function App() {
           )}
 
           {showAuth && (
-            <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+            <AuthModal 
+              isOpen={showAuth} 
+              onClose={() => {
+                setShowAuth(false);
+                setPendingAction(null);
+              }} 
+              onAuthenticated={handleAuthenticated}
+            />
           )}
-        </>
-      )}
     </div>
   );
 }

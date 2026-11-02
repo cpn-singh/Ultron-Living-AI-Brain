@@ -8,7 +8,7 @@ import {
 } from '../services/voiceService';
 import { stopSpeech, isUltronSpeaking } from '../services/voiceTtsService';
 
-export default function VoiceOverlay({ activeTab, onSpeechResult }) {
+export default function VoiceOverlay({ activeTab, onSpeechResult, onRequireAuth }) {
   const onSpeechResultRef = useRef(onSpeechResult);
   onSpeechResultRef.current = onSpeechResult;
 
@@ -156,6 +156,9 @@ export default function VoiceOverlay({ activeTab, onSpeechResult }) {
   const toggleListening = async () => {
     if (isSpeaking) {
       stopSpeech();
+      return;
+    }
+    if (onRequireAuth && !onRequireAuth(() => toggleListening())) {
       return;
     }
     if (voiceState === 'listening') {

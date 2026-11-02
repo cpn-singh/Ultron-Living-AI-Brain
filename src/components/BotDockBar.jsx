@@ -2,12 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Code2, Layers, MessageSquare, Sparkles, ExternalLink, Music } from 'lucide-react';
 import { musicPlayer } from '../services/musicPlayerService';
 
-export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm }) {
+export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm, onRequireAuth }) {
   const [isPlaying, setIsPlaying] = useState(musicPlayer.state.isPlaying);
 
   useEffect(() => {
     return musicPlayer.subscribe((st) => setIsPlaying(st.isPlaying));
   }, []);
+
+  const handleAction = (callback) => {
+    if (onRequireAuth) {
+      onRequireAuth(callback);
+    } else if (callback) {
+      callback();
+    }
+  };
 
   return (
     <div className={`fixed bottom-4 sm:bottom-6 inset-x-0 z-30 flex-col items-center gap-2.5 pointer-events-none px-2 sm:px-4 select-none ${
@@ -30,10 +38,10 @@ export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm 
         {/* CODE Swarm Trigger Button */}
         <button
           type="button"
-          onClick={() => {
+          onClick={() => handleAction(() => {
             if (onLaunchCodeSwarm) onLaunchCodeSwarm();
             else setActiveTab('swarm');
-          }}
+          })}
           className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.5)] cursor-pointer transition-all active:scale-95"
           title="Launch Code Swarm (11 Bots)"
           aria-label="CODE Swarm"
@@ -47,7 +55,7 @@ export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm 
         {/* Swarm Cards Dashboard Trigger Button */}
         <button
           type="button"
-          onClick={() => setActiveTab('swarm')}
+          onClick={() => handleAction(() => setActiveTab('swarm'))}
           className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
             activeTab === 'swarm'
               ? 'text-white bg-purple-600/30 border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
@@ -62,13 +70,13 @@ export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm 
         {/* Music Player Direct Trigger Button */}
         <button
           type="button"
-          onClick={() => {
+          onClick={() => handleAction(() => {
             if (musicPlayer.state.isOpen) {
               musicPlayer.togglePlay();
             } else {
               musicPlayer.playSong('');
             }
-          }}
+          })}
           className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
             isPlaying
               ? 'text-white bg-cyan-500/30 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)] animate-pulse'
@@ -83,7 +91,7 @@ export default function BotDockBar({ activeTab, setActiveTab, onLaunchCodeSwarm 
         {/* Chat Drawer Trigger Button */}
         <button
           type="button"
-          onClick={() => setActiveTab('chat')}
+          onClick={() => handleAction(() => setActiveTab('chat'))}
           className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
             activeTab === 'chat'
               ? 'text-white bg-cyan-600/30 border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
