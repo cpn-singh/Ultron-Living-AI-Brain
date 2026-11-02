@@ -7,11 +7,11 @@ export default function LoadingScreen({ onComplete }) {
   const [isDone, setIsDone] = useState(false);
   const mountRef = useRef(null);
 
-  // 1. Percentage counter progression
+  // 1. Percentage counter progression (paced smoothly to showcase rotating 3D core)
   useEffect(() => {
     let current = 0;
     const interval = setInterval(() => {
-      const increment = current < 35 ? 3.2 : current < 75 ? 2.0 : current < 95 ? 1.3 : 0.7;
+      const increment = current < 25 ? 1.15 : current < 55 ? 0.95 : current < 80 ? 0.75 : current < 96 ? 0.55 : 0.35;
       current = Math.min(100, current + increment);
       
       const rounded = Math.floor(current);
@@ -32,10 +32,10 @@ export default function LoadingScreen({ onComplete }) {
           setIsDone(true);
           setTimeout(() => {
             if (onComplete) onComplete();
-          }, 600);
-        }, 350);
+          }, 700);
+        }, 500);
       }
-    }, 35);
+    }, 45);
 
     return () => clearInterval(interval);
   }, [onComplete]);
