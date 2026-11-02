@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Database, ShieldCheck } from 'lucide-react';
-import { signIn, signUp, signInPasscode, checkDbStatus } from '../services/authService';
+import { X } from 'lucide-react';
+import { signIn, signUp, signInPasscode } from '../services/authService';
 import { fetchUserChatHistory } from '../services/chatHistoryService';
 
 export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
@@ -11,9 +11,7 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passcode, setPasscode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [dbInfo, setDbInfo] = useState({ connected: false, engine: 'Detecting...' });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -21,12 +19,6 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-
-    // Check PostgreSQL connection status
-    checkDbStatus().then((status) => {
-      setDbInfo(status);
-    });
-
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
@@ -34,33 +26,32 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
 
   const validateForm = () => {
     setErrorMsg('');
-    setSuccessMsg('');
 
     if (tab === 'passcode') {
       if (!passcode || passcode.length < 4) {
-        setErrorMsg('Passcode must be at least 4 digits');
+        setErrorMsg('Passcode must be at least 4 digits.');
         return false;
       }
       return true;
     }
 
     if (!email || !email.includes('@') || !email.includes('.')) {
-      setErrorMsg('Please enter a valid email address');
+      setErrorMsg('Please enter a valid email address.');
       return false;
     }
 
     if (!password || password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters');
+      setErrorMsg('Password must be at least 6 characters.');
       return false;
     }
 
     if (tab === 'signup') {
       if (!name.trim()) {
-        setErrorMsg('Please enter your full name');
+        setErrorMsg('Please enter your full name.');
         return false;
       }
       if (password !== confirmPassword) {
-        setErrorMsg('Passwords do not match');
+        setErrorMsg('Passwords do not match.');
         return false;
       }
     }
@@ -74,7 +65,6 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
 
     setLoading(true);
     setErrorMsg('');
-    setSuccessMsg('');
 
     try {
       let result;
@@ -95,9 +85,6 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
       }
 
       if (result.success && result.user) {
-        setSuccessMsg(result.message || (tab === 'signup' ? 'Account created & synced to database!' : 'Signed in successfully!'));
-
-        // Load & synchronize chat history from PostgreSQL
         try {
           const remoteHistory = await fetchUserChatHistory(result.user);
           if (Array.isArray(remoteHistory) && remoteHistory.length > 0) {
@@ -108,123 +95,105 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
           console.warn('[AuthModal] Chat history sync notice:', hErr);
         }
 
-        setTimeout(() => {
-          if (onAuthenticated) onAuthenticated(result.user);
-          onClose();
-        }, 500);
+        if (onAuthenticated) onAuthenticated(result.user);
+        onClose();
       } else {
-        setErrorMsg(result.message || 'Authentication failed. Please try again.');
+        setErrorMsg(result.message || 'Invalid credentials. Please try again.');
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Connection to authentication service failed.');
+      setErrorMsg(err.message || 'Unable to connect to authentication server.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGuest = () => {
-    const guestUser = {
-      email: 'guest@ultron.ai',
-      name: 'Guest Explorer',
-      mode: 'guest',
-      authenticatedAt: new Date().toISOString()
-    };
-    localStorage.setItem('ultron_user', JSON.stringify(guestUser));
-    window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: guestUser } }));
-    if (onAuthenticated) onAuthenticated(guestUser);
-    onClose();
-  };
-
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm select-none"
     >
-      <div className="glass-panel w-full max-w-md p-6 rounded-2xl relative border border-cyan-500/30 bg-slate-950/95 shadow-[0_0_50px_rgba(6,182,212,0.15)]">
+      <div className="w-full max-w-[380px] p-8 rounded-2xl bg-slate-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl relative flex flex-col gap-6">
         <button
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+          className="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-800 transition-colors cursor-pointer"
           title="Close"
           aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
-        <div className="border-b border-white/10 pb-4 mb-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              ULTRON Neural Access <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            </h2>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono border bg-slate-900/80 border-cyan-500/30 text-cyan-300">
-              <Database className="w-3 h-3 text-cyan-400" />
-              <span>{dbInfo.engine || 'PostgreSQL'}</span>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Accounts and chat history persist in PostgreSQL and sync across Web & .exe desktop app.
+        {/* Brand Header */}
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-xl font-semibold tracking-tight text-white">
+            Ultron
+          </h1>
+          <p className="text-xs text-slate-400">
+            {tab === 'signin' && 'Sign in to your account.'}
+            {tab === 'signup' && 'Create your account to continue.'}
+            {tab === 'passcode' && 'Enter your operator passcode.'}
           </p>
         </div>
 
-        {/* Auth Tabs */}
-        <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10 mb-4">
+        {/* Tab Switcher */}
+        <div className="grid grid-cols-3 p-1 rounded-lg bg-slate-950/80 border border-slate-800 text-xs">
           <button
             type="button"
-            onClick={() => { setTab('signin'); setErrorMsg(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              tab === 'signin' ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 shadow-md' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => { setTab('signin'); setErrorMsg(''); }}
+            className={`py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              tab === 'signin'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Sign In
+            Sign in
           </button>
           <button
             type="button"
-            onClick={() => { setTab('signup'); setErrorMsg(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              tab === 'signup' ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 shadow-md' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => { setTab('signup'); setErrorMsg(''); }}
+            className={`py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              tab === 'signup'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Sign Up
+            Sign up
           </button>
           <button
             type="button"
-            onClick={() => { setTab('passcode'); setErrorMsg(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              tab === 'passcode' ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 shadow-md' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => { setTab('passcode'); setErrorMsg(''); }}
+            className={`py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              tab === 'passcode'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Passcode
           </button>
         </div>
 
-        {/* Error / Success Notifications */}
+        {/* Error notification */}
         {errorMsg && (
-          <div className="mb-3 p-2.5 rounded-xl bg-rose-950/70 border border-rose-800/60 text-xs text-rose-300">
+          <div className="p-3 rounded-lg bg-red-950/30 border border-red-900/50 text-xs text-red-300">
             {errorMsg}
           </div>
         )}
 
-        {successMsg && (
-          <div className="mb-3 p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-800/60 text-xs text-emerald-300 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {tab === 'signup' && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-300">Full Name</label>
+              <label className="text-xs font-medium text-slate-300">
+                Full name
+              </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
               />
             </div>
           )}
@@ -232,85 +201,78 @@ export default function AuthModal({ isOpen, onClose, onAuthenticated }) {
           {tab !== 'passcode' ? (
             <>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                <label className="text-xs font-medium text-slate-300">
+                  Email
+                </label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                  placeholder="name@example.com"
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-300">Password</label>
+                <label className="text-xs font-medium text-slate-300">
+                  Password
+                </label>
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 characters..."
-                  className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                  placeholder="Password"
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                 />
               </div>
 
               {tab === 'signup' && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Confirm Password</label>
+                  <label className="text-xs font-medium text-slate-300">
+                    Confirm password
+                  </label>
                   <input
                     type="password"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password..."
-                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                    placeholder="Repeat password"
+                    className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                   />
                 </div>
               )}
             </>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-300">Master Passcode</label>
+              <label className="text-xs font-medium text-slate-300">
+                Master passcode
+              </label>
               <input
                 type="password"
                 required
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
-                placeholder="Enter 4-6 digit passcode (e.g. 1234)..."
-                className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
+                placeholder="Enter passcode"
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors font-mono tracking-widest"
               />
+              <span className="text-[11px] text-slate-500">
+                Default passcode: 1234
+              </span>
             </div>
           )}
 
-          {/* Submit button */}
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 shadow-lg shadow-cyan-950/40 transition-all mt-2 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full mt-2 py-2.5 rounded-lg text-xs font-medium text-slate-950 bg-white hover:bg-slate-200 active:bg-slate-300 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Synchronizing with PostgreSQL...</span>
-              </>
-            ) : (
-              tab === 'signin' ? 'Sign In' : tab === 'signup' ? 'Create Account & Sync' : 'Authenticate Passcode'
-            )}
+            {loading ? 'Authenticating...' : tab === 'signin' ? 'Sign in' : tab === 'signup' ? 'Create account' : 'Unlock'}
           </button>
         </form>
 
-        {/* Guest fallback button */}
-        <div className="pt-3 border-t border-white/10 mt-3 text-center">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={handleGuest}
-            className="w-full py-2 rounded-xl text-xs text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all cursor-pointer"
-          >
-            Continue as Guest / Demo Mode
-          </button>
-        </div>
       </div>
     </div>
   );

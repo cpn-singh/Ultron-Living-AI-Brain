@@ -400,64 +400,53 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     return (
       <button
         onClick={() => setIsMinimized(false)}
-        className="fixed bottom-6 right-6 z-50 p-3.5 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_0_25px_rgba(6,182,212,0.6)] transition-all flex items-center gap-2 border border-cyan-300 cursor-pointer pointer-events-auto active:scale-95"
-        title="Open Chat Drawer"
+        className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-full bg-slate-950/90 backdrop-blur-md hover:bg-slate-900 text-white border border-white/10 shadow-xl transition-all flex items-center gap-2 cursor-pointer pointer-events-auto active:scale-95 text-xs font-medium"
+        title="Open Chat"
       >
-        <MessageSquare className="w-5 h-5 text-white" />
-        <span className="text-xs font-bold font-mono tracking-wider">ULTRON CHAT</span>
+        <MessageSquare className="w-4 h-4 text-slate-400" />
+        <span>Chat</span>
       </button>
     );
   }
 
   return (
     <aside
-      className={`fixed z-50 flex flex-col transition-all duration-300 pointer-events-auto overflow-hidden
-        bg-[#070b18]/95 backdrop-blur-2xl border border-cyan-500/35 rounded-3xl
-        shadow-[0_24px_70px_rgba(0,0,0,0.95),0_0_35px_rgba(0,240,255,0.12)]
+      className={`fixed z-50 flex flex-col transition-all duration-200 pointer-events-auto overflow-hidden
+        bg-slate-950/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_16px_50px_rgba(0,0,0,0.85)]
         ${isExpanded
           ? 'top-14 bottom-4 left-3 right-3 sm:left-auto sm:right-6 sm:w-[720px]'
           : 'top-14 bottom-4 right-3 sm:right-6 w-[450px] max-w-[calc(100vw-1.5rem)]'
         }`}
-      aria-label="ULTRON Chat Interface"
+      aria-label="Ultron Chat Interface"
     >
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-slate-950/80 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          {/* Glowing Status Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-[11px] font-bold shadow-[0_0_12px_rgba(6,182,212,0.3)]">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="tracking-wide">ULTRON AI</span>
-          </div>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-slate-900/60 backdrop-blur-md flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold tracking-tight text-white">Ultron</span>
 
           {/* Web Search Grounding Active Badge */}
           {webSearchEnabled && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-950/80 border border-sky-400/50 text-sky-200 text-[10px] font-semibold animate-pulse">
-              <Globe className="w-3 h-3 text-sky-400" />
-              <span>Web Search Active</span>
-            </div>
+            <span className="text-[11px] font-medium text-slate-300 border border-slate-700/80 rounded-md px-2 py-0.5 bg-slate-800/80">
+              Web Search
+            </span>
           )}
 
-          {/* PostgreSQL Sync Status Pill */}
+          {/* Database Sync Status */}
           <button
             type="button"
             onClick={handleManualSync}
             disabled={isSyncing}
-            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono border transition-all cursor-pointer ${
-              dbStatus.connected
-                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
-                : 'bg-cyan-950/40 border-cyan-500/30 text-cyan-300 hover:bg-cyan-900/40'
-            }`}
-            title="PostgreSQL sync status across Web & .exe. Click to sync conversation history now."
+            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono border border-white/10 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-colors cursor-pointer"
+            title="Database sync status. Click to sync now."
           >
-            <Database className="w-2.5 h-2.5 text-cyan-400" />
-            <span>{syncStatusMsg || (dbStatus.connected ? 'PostgreSQL Synced' : dbStatus.engine || 'DB Ready')}</span>
-            <RefreshCw className={`w-2.5 h-2.5 text-slate-400 ${isSyncing ? 'animate-spin text-cyan-400' : ''}`} />
+            <span>{syncStatusMsg || (dbStatus.connected ? 'PostgreSQL' : dbStatus.engine ? dbStatus.engine.replace(' (Local Fallback)', '') : 'Local')}</span>
+            <RefreshCw className={`w-2.5 h-2.5 text-slate-400 ${isSyncing ? 'animate-spin text-slate-200' : ''}`} />
           </button>
         </div>
 
         {/* Right Window Action Icons */}
         <div className="flex items-center gap-1 text-slate-400">
-          {/* TTS Voice Output Audio Toggle / Silence Button */}
+          {/* Voice Output Audio Toggle */}
           <button
             type="button"
             onClick={() => {
@@ -469,23 +458,23 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                 localStorage.setItem('ultron_tts_enabled', next ? 'true' : 'false');
               }
             }}
-            className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+            className={`p-1.5 rounded-md transition-colors cursor-pointer flex items-center ${
               isUltronTalking
-                ? 'text-cyan-300 bg-cyan-950/80 border border-cyan-400 animate-pulse shadow-[0_0_12px_rgba(6,182,212,0.6)]'
+                ? 'text-white bg-slate-800'
                 : isTtsEnabled
-                ? 'text-cyan-400 hover:text-cyan-200 hover:bg-white/10'
-                : 'text-slate-600 hover:text-slate-400 hover:bg-white/10'
+                ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                : 'text-slate-600 hover:text-slate-400 hover:bg-slate-800/40'
             }`}
             title={
               isUltronTalking
-                ? "Ultron is speaking. Click to silence/stop voice"
+                ? "Ultron is speaking. Click to silence"
                 : isTtsEnabled
-                ? "Ultron Voice Output: ACTIVE (Click to mute)"
-                : "Ultron Voice Output: MUTED (Click to unmute)"
+                ? "Voice output enabled (Click to mute)"
+                : "Voice output muted (Click to unmute)"
             }
           >
             {isUltronTalking ? (
-              <Volume2 className="w-3.5 h-3.5 animate-bounce text-cyan-300" />
+              <Volume2 className="w-3.5 h-3.5 animate-pulse text-white" />
             ) : isTtsEnabled ? (
               <Volume2 className="w-3.5 h-3.5" />
             ) : (
@@ -496,7 +485,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           <button
             type="button"
             onClick={handleExportChat}
-            className="p-1.5 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 hover:text-white hover:bg-slate-800/60 rounded-md transition-colors cursor-pointer"
             title="Export Chat History as Markdown"
           >
             <Download className="w-3.5 h-3.5" />
@@ -505,7 +494,7 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           <button
             type="button"
             onClick={handleClearChat}
-            className="p-1.5 hover:text-rose-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 hover:text-rose-400 hover:bg-slate-800/60 rounded-md transition-colors cursor-pointer"
             title="Clear Chat History"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -514,8 +503,8 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1.5 hover:text-cyan-300 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-            title={isExpanded ? "Restore Size" : "Expand Full Screen"}
+            className="p-1.5 hover:text-white hover:bg-slate-800/60 rounded-md transition-colors cursor-pointer"
+            title={isExpanded ? "Restore Size" : "Expand Size"}
           >
             {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
@@ -523,29 +512,28 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 hover:text-rose-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-            title="Close Chat Drawer"
+            className="p-1.5 hover:text-white hover:bg-slate-800/60 rounded-md transition-colors cursor-pointer"
+            title="Close Chat"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Specialist Bot Selector Row */}
-      <div className="flex items-center gap-1.5 px-3 py-2 bg-[#050814] border-b border-white/5 overflow-x-auto no-scrollbar flex-shrink-0">
+      {/* Specialist Model Selector Row */}
+      <div className="flex items-center gap-1 px-3 py-2 bg-slate-950/70 border-b border-white/5 overflow-x-auto no-scrollbar flex-shrink-0">
         {BOTS.map((bot) => {
           const isSelected = activeAgent === bot.id;
           return (
             <button
               key={bot.id}
               onClick={() => setActiveAgent(bot.id)}
-              className={`px-3 py-1 rounded-xl text-[11px] font-medium transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
                 isSelected
-                  ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.35)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                  ? 'bg-slate-800/90 text-white border border-slate-700/80 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
               }`}
             >
-              <Target className="w-3 h-3 text-cyan-400" />
               <span>{bot.shortName}</span>
             </button>
           );
@@ -553,54 +541,47 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
       </div>
 
       {/* Messages Scrollable Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 font-sans">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 font-sans bg-slate-950/80">
         {messages.map((m) => {
           const isUser = m.sender === 'User';
           return (
-            <div key={m.id} className={`flex items-start gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
-              {/* Bot Avatar */}
-              {!isUser && (
-                <div className="w-7 h-7 rounded-full bg-cyan-950 border border-cyan-500/60 flex items-center justify-center font-bold text-xs text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.3)] flex-shrink-0 mt-0.5 select-none">
-                  <Bot className="w-3.5 h-3.5 text-cyan-300" />
-                </div>
-              )}
-
+            <div key={m.id} className={`flex items-start ${isUser ? 'justify-end' : 'justify-start'}`}>
               {/* Message Content Bubble */}
               {isUser ? (
                 <div className="max-w-[85%] flex flex-col items-end gap-1">
-                  <div className="bg-gradient-to-r from-cyan-950/90 to-slate-900/90 border border-cyan-500/40 text-white font-medium rounded-2xl rounded-tr-sm px-4 py-2.5 text-xs sm:text-sm shadow-md">
+                  <div className="bg-slate-800/90 text-slate-100 rounded-xl px-3.5 py-2.5 text-sm border border-slate-700/60">
                     {m.text}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 pr-1">
-                    <button onClick={() => copyToClipboard(m.id, m.text)} className="hover:text-slate-300 cursor-pointer">
-                      {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500 pr-1">
+                    <button onClick={() => copyToClipboard(m.id, m.text)} className="hover:text-slate-300 transition-colors cursor-pointer">
+                      {copiedId === m.id ? 'Copied' : 'Copy'}
                     </button>
                     <span>{new Date(m.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Now'}</span>
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 max-w-[92%] flex flex-col gap-1">
-                  <div className="bg-[#0b1224]/90 border border-slate-800/90 rounded-2xl rounded-tl-sm p-4 shadow-xl text-xs space-y-2 text-slate-100">
+                <div className="flex-1 max-w-[95%] flex flex-col gap-1.5">
+                  <div className="bg-slate-900/70 border border-slate-800/80 rounded-xl p-4 text-sm text-slate-200">
                     {m.isWelcome ? (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-bold text-cyan-400">Welcome to ULTRON Swarm (2026 Core)</h3>
-                        <p className="text-slate-300">I'm your next-generation desktop AI companion.</p>
-                        <ul className="space-y-1.5 pt-1 text-slate-200">
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-cyan-400 font-bold">&gt;</span>
-                            <span><strong>Frontier AI Engines</strong>: Google Gemini 3.8 Flash & DeepSeek-R1 / LLaMA 3.3.</span>
+                      <div className="space-y-2.5 text-slate-300 text-sm">
+                        <h3 className="text-sm font-semibold text-white tracking-tight">Ultron Intelligence</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">Next-generation desktop companion with autonomous intelligence and local execution.</p>
+                        <ul className="space-y-1.5 pt-1 text-xs text-slate-300">
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-500 font-mono">•</span>
+                            <span><strong>Engines</strong>: Google Gemini 3.8 Flash & DeepSeek-R1 / LLaMA 3.3</span>
                           </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-cyan-400 font-bold">&gt;</span>
-                            <span><strong>Live Web Grounding</strong>: Search the open web with verified sources (click 🌐 below).</span>
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-500 font-mono">•</span>
+                            <span><strong>Grounding</strong>: Live web search with verified citations</span>
                           </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-cyan-400 font-bold">&gt;</span>
-                            <span><strong>Interactive Code Sandboxes</strong>: Click <strong>Run</strong> on any Python or JS code block.</span>
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-500 font-mono">•</span>
+                            <span><strong>Execution</strong>: Run Python and JavaScript code sandboxes locally</span>
                           </li>
-                          <li className="flex items-start gap-1.5">
-                            <span className="text-cyan-400 font-bold">&gt;</span>
-                            <span><strong>PC Software Automation</strong>: Launch installed software on PC by voice or text.</span>
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-500 font-mono">•</span>
+                            <span><strong>System Control</strong>: Launch applications and control system operations</span>
                           </li>
                         </ul>
                       </div>
@@ -610,13 +591,12 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                   </div>
 
                   {/* Message Action Footer */}
-                  <div className="flex items-center gap-2 pl-2 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-2 pl-1 text-[11px] text-slate-500">
                     <button
                       onClick={() => copyToClipboard(m.id, m.text)}
-                      className="hover:text-slate-300 flex items-center gap-1 cursor-pointer"
+                      className="hover:text-slate-300 transition-colors cursor-pointer"
                     >
-                      {copiedId === m.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedId === m.id ? 'Copied' : 'Copy'}</span>
+                      {copiedId === m.id ? 'Copied' : 'Copy'}
                     </button>
                     <span>•</span>
                     <button
@@ -627,14 +607,13 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
                           speakText(m.text);
                         }
                       }}
-                      className="hover:text-cyan-400 flex items-center gap-1 cursor-pointer"
-                      title={isUltronTalking ? "Stop voice" : "Listen to message voice"}
+                      className="hover:text-slate-300 transition-colors cursor-pointer"
+                      title={isUltronTalking ? "Stop voice" : "Listen to message"}
                     >
-                      <Volume2 className={`w-3 h-3 ${isUltronTalking ? 'text-cyan-400 animate-pulse' : 'text-slate-400'}`} />
-                      <span>{isUltronTalking ? 'Stop' : 'Speak'}</span>
+                      <span>{isUltronTalking ? 'Stop' : 'Listen'}</span>
                     </button>
                     <span>•</span>
-                    <span className="font-mono text-cyan-400/80">{m.botName || activeBotObj.name}</span>
+                    <span className="font-mono text-slate-400">{m.botName || activeBotObj.name}</span>
                   </div>
                 </div>
               )}
@@ -643,44 +622,43 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
         })}
 
         {partialText && (
-          <div className="self-end max-w-[85%] p-2.5 rounded-2xl text-xs bg-slate-900/80 text-cyan-300 border border-cyan-800/40 italic flex items-center gap-2">
-            <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse flex-shrink-0" />
-            <span>Listening: "{partialText}"</span>
+          <div className="self-end max-w-[85%] px-3 py-2 rounded-xl text-xs bg-slate-900 border border-slate-800 text-slate-300 italic">
+            Listening: "{partialText}"
           </div>
         )}
 
         {loading && (
-          <div className="self-start bg-slate-950/90 border border-cyan-900/60 p-3 rounded-2xl text-xs text-cyan-400 flex items-center gap-2 shadow-lg">
-            <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-            <span>ULTRON [{activeBotObj.shortName}] synthesizing response...</span>
+          <div className="self-start bg-slate-900 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs text-slate-400 flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+            <span>Generating response...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Bottom Input Area */}
-      <div className="p-3 bg-[#050914]/95 border-t border-white/10 rounded-b-3xl flex flex-col gap-1.5 flex-shrink-0 relative">
+      <div className="p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 rounded-b-2xl flex flex-col gap-2 flex-shrink-0 relative">
         {/* Scroll down button */}
         <button
           onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          className="absolute -top-3.5 right-4 w-7 h-7 rounded-full bg-slate-900 border border-slate-700/60 text-slate-400 hover:text-white flex items-center justify-center shadow-lg cursor-pointer z-10"
-          title="Scroll to latest messages"
+          className="absolute -top-3.5 right-4 w-6 h-6 rounded-full bg-slate-800 border border-slate-700/80 text-slate-400 hover:text-white flex items-center justify-center shadow-lg cursor-pointer z-10"
+          title="Scroll to latest"
         >
-          <ChevronDown className="w-4 h-4" />
+          <ChevronDown className="w-3.5 h-3.5" />
         </button>
 
-        {/* Input Pill Bar */}
-        <div className="bg-[#030610] border border-cyan-500/40 rounded-full px-3.5 py-2 flex items-center gap-2.5 shadow-inner focus-within:border-cyan-400 focus-within:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all">
+        {/* Input Bar */}
+        <div className="bg-slate-900/80 border border-slate-800 focus-within:border-slate-700 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-colors">
           {/* Live Web Grounding Toggle */}
           <button
             type="button"
             onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-            className={`cursor-pointer flex-shrink-0 p-1.5 rounded-full transition-all ${
+            className={`cursor-pointer flex-shrink-0 p-1.5 rounded-md transition-colors ${
               webSearchEnabled 
-                ? 'text-cyan-300 bg-cyan-950/80 shadow-[0_0_12px_rgba(6,182,212,0.6)] border border-cyan-400/50' 
-                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                ? 'bg-slate-800 text-white' 
+                : 'text-slate-500 hover:text-slate-300'
             }`}
-            title={webSearchEnabled ? "Live Web Search Grounding: ACTIVE" : "Click to enable Live Web Search Grounding"}
+            title={webSearchEnabled ? "Live Web Search: Active" : "Enable Web Search"}
           >
             <Globe className="w-4 h-4" />
           </button>
@@ -690,26 +668,19 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={webSearchEnabled ? "Search world wide web live..." : activeBotObj.placeholder}
-            className="flex-1 min-w-0 bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none font-sans font-medium"
+            placeholder={webSearchEnabled ? "Search web live..." : (activeBotObj.placeholder || "Ask Ultron anything...")}
+            className="flex-1 min-w-0 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none font-normal"
           />
-
-          <button
-            type="button"
-            onClick={() => speakText(input || "ULTRON active")}
-            className="text-slate-400 hover:text-cyan-400 cursor-pointer flex-shrink-0 p-1"
-            title="Voice preview"
-          >
-            <Volume2 className="w-4 h-4" />
-          </button>
 
           <button
             type="button"
             onClick={handleVoice}
             aria-label={micState === MIC_STATES.idle ? "Start voice recognition" : "Stop voice recognition"}
-            title={micState === MIC_STATES.idle ? "Voice input (Speak now)" : "Stop listening"}
-            className={`p-1.5 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-              micState !== MIC_STATES.idle ? 'text-red-400 animate-pulse bg-red-950/50' : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/40'
+            title={micState === MIC_STATES.idle ? "Voice input" : "Stop listening"}
+            className={`p-1.5 rounded-md transition-colors cursor-pointer flex-shrink-0 ${
+              micState !== MIC_STATES.idle 
+                ? 'bg-red-950 text-red-400 animate-pulse' 
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             {micState !== MIC_STATES.idle ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -718,23 +689,17 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
           <button
             onClick={() => handleSend()}
             disabled={loading || !input.trim()}
-            className="p-1.5 text-cyan-400 hover:text-cyan-300 disabled:opacity-30 cursor-pointer flex-shrink-0 hover:bg-cyan-950/40 rounded-full transition-colors"
+            className="px-3 py-1.5 bg-white text-slate-950 font-medium hover:bg-slate-200 disabled:opacity-25 disabled:hover:bg-white rounded-lg text-xs transition-colors cursor-pointer flex-shrink-0"
             title="Send message"
           >
-            <Send className="w-4 h-4" />
+            Send
           </button>
         </div>
 
         {/* Sub-footer Line Below Input */}
-        <div className="flex items-center justify-between px-2 pt-0.5 text-[10px] text-slate-400 font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span>{activeBotObj.name}</span>
-          </span>
-          <span className="flex items-center gap-1 text-cyan-400/80">
-            <Brain className="w-3 h-3" />
-            <span>{memoryCount} memories loaded</span>
-          </span>
+        <div className="flex items-center justify-between px-1 text-[11px] text-slate-500 font-mono">
+          <span>{activeBotObj.name}</span>
+          <span>{memoryCount} memories</span>
         </div>
       </div>
     </aside>
