@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, 
   Minus, Maximize2, X, Music, Radio, ExternalLink, Disc, Loader2,
-  Headphones, Film, RefreshCw, AlertTriangle
+  Headphones, Film, RefreshCw
 } from 'lucide-react';
 import { musicPlayer } from '../services/musicPlayerService';
 
@@ -13,7 +13,7 @@ const formatTime = (secs) => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-function SeekSlider({ currentTime, duration, onSeek, accent = 'rose' }) {
+function SeekSlider({ currentTime, duration, onSeek }) {
   const [isDragging, setIsDragging] = useState(false);
   const [localVal, setLocalVal] = useState(currentTime || 0);
 
@@ -39,21 +39,17 @@ function SeekSlider({ currentTime, duration, onSeek, accent = 'rose' }) {
   };
 
   return (
-    <div className="flex flex-col gap-1 px-1 select-none">
-      <div className="relative flex items-center h-6 cursor-pointer touch-none">
+    <div className="flex flex-col gap-1 px-0.5 select-none">
+      <div className="relative flex items-center h-5 cursor-pointer touch-none group">
         {/* Progress Background Track */}
-        <div className="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60 shadow-inner">
+        <div className="w-full h-1.5 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60 shadow-inner">
           <div
-            className={`h-full ${
-              accent === 'rose'
-                ? 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-400'
-                : 'bg-gradient-to-r from-cyan-500 via-sky-400 to-teal-400'
-            } rounded-full transition-all duration-75`}
+            className="h-full bg-white rounded-full transition-all duration-75"
             style={{ width: `${percent}%` }}
           />
         </div>
 
-        {/* Transparent native range input for frictionless touch & mouse dragging */}
+        {/* Range input for seek dragging */}
         <input
           type="range"
           min="0"
@@ -69,18 +65,14 @@ function SeekSlider({ currentTime, duration, onSeek, accent = 'rose' }) {
           title="Seek track position"
         />
 
-        {/* High-visibility glowing scrubber thumb */}
+        {/* Scrubber thumb */}
         <div
-          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none w-3.5 h-3.5 rounded-full ${
-            accent === 'rose'
-              ? 'bg-rose-400 shadow-[0_0_10px_rgba(244,63,94,1)]'
-              : 'bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,1)]'
-          } border-2 border-white`}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none w-3 h-3 rounded-full bg-white shadow-md border border-slate-900 group-hover:scale-125 transition-transform"
           style={{ left: `${percent}%` }}
         />
       </div>
 
-      <div className="flex justify-between text-[10px] font-mono text-white/50 px-0.5">
+      <div className="flex justify-between text-[10px] font-mono text-slate-400 px-0.5">
         <span>{formatTime(currentVal)}</span>
         <span>{formatTime(maxVal)}</span>
       </div>
@@ -124,22 +116,22 @@ export default function MusicPlayer() {
   if (playerState.isMinimized) {
     return (
       <div 
-        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-3.5 py-2 rounded-full glass-panel bg-slate-950/90 backdrop-blur-2xl border border-cyan-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.8)] select-none text-white animate-in fade-in slide-in-from-bottom-2 duration-200"
+        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2.5 px-3 py-2 rounded-full bg-slate-950/90 backdrop-blur-2xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.75)] select-none text-white animate-in fade-in slide-in-from-bottom-2 duration-200"
       >
         <button
           onClick={() => musicPlayer.toggleMinimize()}
-          className="flex items-center gap-2 hover:opacity-90 cursor-pointer"
+          className="flex items-center gap-2.5 hover:opacity-90 cursor-pointer"
           title="Expand Music Player"
         >
-          <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-cyan-950/80 border border-cyan-500/50">
-            <Disc className={`w-4 h-4 text-cyan-400 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
+          <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-slate-900 border border-slate-700/80">
+            <Disc className={`w-3.5 h-3.5 text-slate-300 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
           </div>
 
-          <div className="flex flex-col text-left max-w-[120px] sm:max-w-[160px]">
-            <span className="text-xs font-semibold truncate text-cyan-200">
+          <div className="flex flex-col text-left max-w-[130px] sm:max-w-[170px]">
+            <span className="text-xs font-medium truncate text-white">
               {playerState.currentTrack?.title || 'Ultron Audio'}
             </span>
-            <span className="text-[10px] text-white/50 truncate">
+            <span className="text-[10px] text-slate-400 truncate">
               {playerState.isPlaying ? 'Playing now' : 'Paused'}
             </span>
           </div>
@@ -148,17 +140,18 @@ export default function MusicPlayer() {
         {/* Mini Visualizer */}
         {playerState.isPlaying && (
           <div className="flex items-end gap-0.5 h-3.5 px-1">
-            <span className="w-0.5 bg-cyan-400 animate-pulse rounded-full h-2" />
-            <span className="w-0.5 bg-sky-400 animate-pulse rounded-full h-3.5" style={{ animationDelay: '0.15s' }} />
-            <span className="w-0.5 bg-cyan-300 animate-pulse rounded-full h-1.5" style={{ animationDelay: '0.3s' }} />
-            <span className="w-0.5 bg-blue-400 animate-pulse rounded-full h-3" style={{ animationDelay: '0.45s' }} />
+            <span className="w-0.5 bg-slate-400 animate-pulse rounded-full h-2" />
+            <span className="w-0.5 bg-white animate-pulse rounded-full h-3.5" style={{ animationDelay: '0.15s' }} />
+            <span className="w-0.5 bg-slate-300 animate-pulse rounded-full h-1.5" style={{ animationDelay: '0.3s' }} />
+            <span className="w-0.5 bg-slate-400 animate-pulse rounded-full h-3" style={{ animationDelay: '0.45s' }} />
           </div>
         )}
 
         {/* Play/Pause */}
         <button
           onClick={() => musicPlayer.togglePlay()}
-          className="p-1 rounded-full text-cyan-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          title={playerState.isPlaying ? 'Pause' : 'Play'}
         >
           {playerState.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
         </button>
@@ -166,7 +159,7 @@ export default function MusicPlayer() {
         {/* Expand */}
         <button
           onClick={() => musicPlayer.toggleMinimize()}
-          className="p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           title="Expand Player"
         >
           <Maximize2 className="w-3.5 h-3.5" />
@@ -175,7 +168,7 @@ export default function MusicPlayer() {
         {/* Close */}
         <button
           onClick={() => musicPlayer.close()}
-          className="p-1 rounded-full text-white/40 hover:text-red-400 hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           title="Close Player"
         >
           <X className="w-3.5 h-3.5" />
@@ -187,56 +180,45 @@ export default function MusicPlayer() {
   // Full Expanded Player Card
   return (
     <div 
-      className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-50 w-[92vw] sm:w-[360px] max-w-[380px] rounded-2xl glass-panel bg-slate-950/95 backdrop-blur-2xl border border-cyan-500/40 shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex flex-col gap-3 p-4 select-none text-white animate-in fade-in zoom-in-95 duration-200"
+      className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-50 w-[92vw] sm:w-[370px] max-w-[390px] rounded-2xl bg-slate-950/95 backdrop-blur-2xl border border-white/10 shadow-[0_16px_50px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden select-none text-white animate-in fade-in zoom-in-95 duration-200"
     >
-      {/* Header Toolbar */}
-      <div className="flex items-center justify-between border-b border-cyan-900/40 pb-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-cyan-950/80 border border-cyan-500/40 text-cyan-400">
-            <Music className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-400 font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              ULTRON YouTube Music
-            </span>
-          </div>
+      {/* Top Header Bar */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-slate-900/60 backdrop-blur-md flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
+            <Music className="w-4 h-4 text-slate-300" />
+            Ultron Music
+          </span>
+          <span className="text-[11px] font-medium text-slate-300 border border-slate-700/80 rounded-md px-2 py-0.5 bg-slate-800/80 flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${playerState.isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+            <span>{playerState.displayMode === 'audio' ? 'Audio Stream' : 'Video Stream'}</span>
+          </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 text-slate-400">
           {/* Audio vs Video Mode Toggle */}
           <button
             onClick={() => musicPlayer.toggleDisplayMode()}
-            className={`px-2 py-1 rounded-lg border text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors shadow-sm ${
-              playerState.displayMode === 'audio'
-                ? 'bg-rose-950/80 hover:bg-rose-900 border-rose-500/40 text-rose-300'
-                : 'bg-cyan-950/80 hover:bg-cyan-900 border-cyan-500/40 text-cyan-300'
-            }`}
-            title={playerState.displayMode === 'audio' ? 'Switch to Video Mode' : 'Switch to Audio Visualizer Mode'}
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer flex items-center"
+            title={playerState.displayMode === 'audio' ? 'Switch to Video Mode' : 'Switch to Audio Mode'}
           >
             {playerState.displayMode === 'audio' ? (
-              <>
-                <Film className="w-3 h-3 text-rose-400" />
-                <span>Video Mode</span>
-              </>
+              <Film className="w-3.5 h-3.5" />
             ) : (
-              <>
-                <Headphones className="w-3 h-3 text-cyan-400" />
-                <span>Audio Mode</span>
-              </>
+              <Headphones className="w-3.5 h-3.5" />
             )}
           </button>
 
           <button
             onClick={() => musicPlayer.toggleMinimize()}
-            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             title="Minimize"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => musicPlayer.close()}
-            className="p-1.5 rounded-lg text-white/50 hover:text-rose-400 hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             title="Close"
           >
             <X className="w-3.5 h-3.5" />
@@ -244,251 +226,247 @@ export default function MusicPlayer() {
         </div>
       </div>
 
-      {/* Main Content: Full-Length YouTube Stream (Video or Cyberpunk Audio Visualizer) */}
-      {playerState.sourceType === 'youtube' ? (
-        playerState.isLoading ? (
-          <div className="flex flex-col items-center justify-center p-6 gap-2.5 rounded-xl border border-cyan-500/40 bg-black/80 aspect-video shadow-inner">
-            <Loader2 className="w-7 h-7 text-cyan-400 animate-spin" />
-            <span className="text-xs font-mono text-cyan-200 text-center animate-pulse">
-              Tuning full stream for "{playerState.ytQuery}"...
-            </span>
-            <span className="text-[10px] text-white/40">Resolving YouTube Music audio</span>
-          </div>
-        ) : playerState.ytEmbedUrl ? (
-          <div className="flex flex-col gap-2">
-            {/* If in Audio Mode, stream full high-fidelity audio without cutoffs or restrictions */}
-            {playerState.displayMode === 'audio' ? (
-              <>
-                {/* Fallback to visible player if direct audio stream is not available (prevents Android Chrome 1px iframe mute) */}
-                {!playerState.audioUrl && playerState.ytEmbedUrl ? (
-                  <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-rose-900/60 bg-black shadow-inner">
+      {/* Main Content Body */}
+      <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+        {playerState.sourceType === 'youtube' ? (
+          playerState.isLoading ? (
+            <div className="flex flex-col items-center justify-center p-6 gap-2.5 rounded-xl border border-slate-800 bg-slate-900/60 aspect-video shadow-inner">
+              <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+              <span className="text-xs font-mono text-slate-300 text-center animate-pulse">
+                Tuning stream for "{playerState.ytQuery}"...
+              </span>
+              <span className="text-[10px] text-slate-500">Resolving YouTube audio stream</span>
+            </div>
+          ) : playerState.ytEmbedUrl ? (
+            <div className="flex flex-col gap-3">
+              {playerState.displayMode === 'audio' ? (
+                <>
+                  {!playerState.audioUrl && playerState.ytEmbedUrl ? (
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-800 bg-black shadow-inner">
+                      <iframe
+                        src={playerState.ytEmbedUrl}
+                        title={`Ultron Stream - ${playerState.ytQuery}`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {/* Gesture unblock if needed on mobile browsers */}
+                      {playerState.needsUserGesture && (
+                        <button
+                          type="button"
+                          onClick={() => musicPlayer.resume()}
+                          className="w-full py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-750 text-white font-medium text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-sm"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Tap to Play Song (Audio Focus)</span>
+                        </button>
+                      )}
+
+                      {/* Track info card */}
+                      <div 
+                        onClick={() => musicPlayer.togglePlay()}
+                        className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm cursor-pointer hover:border-slate-700 transition-colors"
+                        title={playerState.isPlaying ? 'Tap to Pause' : 'Tap to Play'}
+                      >
+                        <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 shadow-md shrink-0 overflow-hidden">
+                          {playerState.currentTrack?.cover ? (
+                            <img
+                              src={playerState.currentTrack.cover}
+                              alt="Cover"
+                              className={`w-full h-full object-cover ${playerState.isPlaying ? 'animate-spin' : ''}`}
+                              style={{ animationDuration: '6s' }}
+                            />
+                          ) : (
+                            <Disc className={`w-7 h-7 text-slate-300 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '3.5s' }} />
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-2.5 h-2.5 rounded-full bg-slate-200 border border-black/60 shadow-sm" />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col overflow-hidden flex-1">
+                          <span className="text-sm font-semibold text-white truncate tracking-tight">
+                            {playerState.currentTrack?.title || playerState.ytQuery || 'Playing Song'}
+                          </span>
+                          <span className="text-xs text-slate-400 truncate">
+                            {playerState.currentTrack?.artist || 'YouTube Music'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            {playerState.currentTrack?.genre || 'Direct Stream Active'}
+                          </span>
+                        </div>
+
+                        {/* Equalizer frequency bars */}
+                        <div className="flex items-end gap-1 h-5 px-1 shrink-0">
+                          <span className={`w-0.5 rounded-full bg-slate-400 ${playerState.isPlaying ? 'animate-bounce h-4' : 'h-1'}`} style={{ animationDuration: '0.6s' }} />
+                          <span className={`w-0.5 rounded-full bg-white ${playerState.isPlaying ? 'animate-bounce h-5' : 'h-2'}`} style={{ animationDuration: '0.45s', animationDelay: '0.1s' }} />
+                          <span className={`w-0.5 rounded-full bg-slate-300 ${playerState.isPlaying ? 'animate-bounce h-3' : 'h-1'}`} style={{ animationDuration: '0.7s', animationDelay: '0.2s' }} />
+                          <span className={`w-0.5 rounded-full bg-slate-200 ${playerState.isPlaying ? 'animate-bounce h-4.5' : 'h-2'}`} style={{ animationDuration: '0.5s', animationDelay: '0.15s' }} />
+                          <span className={`w-0.5 rounded-full bg-slate-400 ${playerState.isPlaying ? 'animate-bounce h-3.5' : 'h-1'}`} style={{ animationDuration: '0.65s', animationDelay: '0.25s' }} />
+                        </div>
+                      </div>
+
+                      {/* Seek Slider */}
+                      <SeekSlider
+                        currentTime={playerState.currentTime}
+                        duration={playerState.duration}
+                        onSeek={(secs) => musicPlayer.seek(secs)}
+                      />
+
+                      <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                        <span className="truncate max-w-[200px]">
+                          Query: <strong className="text-slate-200">"{playerState.ytQuery}"</strong>
+                        </span>
+                        <a
+                          href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-slate-300 hover:text-white font-medium transition-colors cursor-pointer"
+                          title="Open in YouTube Music"
+                        >
+                          <span>YouTube Music</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Video Mode */
+                <>
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-800 bg-black shadow-inner">
                     <iframe
                       src={playerState.ytEmbedUrl}
-                      title={`Ultron Background Stream - ${playerState.ytQuery}`}
+                      title={`Ultron Player - ${playerState.ytQuery}`}
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       referrerPolicy="strict-origin-when-cross-origin"
                       allowFullScreen
                     />
                   </div>
-                ) : (
-                  /* Cyberpunk Audio Visualizer Card for Full-Length Audio Streaming */
-                  <div className="flex flex-col gap-3">
-                    {/* Tap to Play Banner if Autoplay was blocked by Android Chrome */}
-                    {playerState.needsUserGesture && (
-                      <button
-                        type="button"
-                        onClick={() => musicPlayer.resume()}
-                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-600 hover:from-rose-400 hover:to-pink-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(244,63,94,0.7)] animate-pulse active:scale-95 transition-all cursor-pointer border border-rose-400/50"
-                      >
-                        <Play className="w-4 h-4 fill-current" />
-                        <span>Tap to Play Song (Android Audio Unblock)</span>
-                      </button>
-                    )}
-
-                    <div 
-                      onClick={() => musicPlayer.togglePlay()}
-                      className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/90 border border-rose-900/40 shadow-inner cursor-pointer hover:border-rose-500/50 transition-colors"
-                      title={playerState.isPlaying ? 'Tap to Pause' : 'Tap to Play'}
+                  <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                    <span className="truncate max-w-[220px]">
+                      Query: <strong className="text-slate-200">"{playerState.ytQuery}"</strong>
+                    </span>
+                    <a
+                      href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-slate-300 hover:text-white font-medium transition-colors cursor-pointer"
+                      title="Open in YouTube Music"
                     >
-                      <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-slate-950 border-2 border-rose-500/40 shadow-lg shrink-0 overflow-hidden">
-                        {playerState.currentTrack?.cover ? (
-                          <img
-                            src={playerState.currentTrack.cover}
-                            alt="Cover"
-                            className={`w-full h-full object-cover ${playerState.isPlaying ? 'animate-spin' : ''}`}
-                            style={{ animationDuration: '6s' }}
-                          />
-                        ) : (
-                          <Disc className={`w-8 h-8 text-rose-400 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '3.5s' }} />
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-3.5 h-3.5 rounded-full bg-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.8)] border border-black/40" />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col overflow-hidden flex-1">
-                        <span className="text-sm font-bold text-white truncate tracking-wide">
-                          {playerState.currentTrack?.title || playerState.ytQuery || 'Playing Song'}
-                        </span>
-                        <span className="text-xs text-rose-300/80 truncate">
-                          {playerState.currentTrack?.artist || 'YouTube Music (Full Audio)'}
-                        </span>
-                        <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          {playerState.currentTrack?.genre || 'Full Song Streaming'}
-                        </span>
-                      </div>
-
-                      {/* Equalizer Frequency Waves */}
-                      <div className="flex items-end gap-1 h-6 px-1 shrink-0">
-                        <span className={`w-1 rounded-full bg-rose-400 ${playerState.isPlaying ? 'animate-bounce h-5' : 'h-1'}`} style={{ animationDuration: '0.6s' }} />
-                        <span className={`w-1 rounded-full bg-pink-400 ${playerState.isPlaying ? 'animate-bounce h-6' : 'h-2'}`} style={{ animationDuration: '0.45s', animationDelay: '0.1s' }} />
-                        <span className={`w-1 rounded-full bg-rose-300 ${playerState.isPlaying ? 'animate-bounce h-3.5' : 'h-1'}`} style={{ animationDuration: '0.7s', animationDelay: '0.2s' }} />
-                        <span className={`w-1 rounded-full bg-amber-400 ${playerState.isPlaying ? 'animate-bounce h-5.5' : 'h-2'}`} style={{ animationDuration: '0.5s', animationDelay: '0.15s' }} />
-                        <span className={`w-1 rounded-full bg-rose-500 ${playerState.isPlaying ? 'animate-bounce h-4' : 'h-1'}`} style={{ animationDuration: '0.65s', animationDelay: '0.25s' }} />
-                      </div>
-                    </div>
-
-                    {/* High-Precision Interactive Progress Seekbar */}
-                    <SeekSlider
-                      currentTime={playerState.currentTime}
-                      duration={playerState.duration}
-                      onSeek={(secs) => musicPlayer.seek(secs)}
-                      accent="rose"
-                    />
-
-                    <div className="flex items-center justify-between px-1 text-[11px] text-white/70">
-                      <span className="truncate max-w-[200px] text-white/50">
-                        Query: <strong className="text-white">"{playerState.ytQuery}"</strong>
-                      </span>
-                      <a
-                        href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-medium underline cursor-pointer"
-                        title="Open in YouTube Music app or web"
-                      >
-                        <span>YouTube Music</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                      <span>YouTube Music</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
-                )}
-              </>
-            ) : (
-              /* Video Mode: Full aspect-video embed */
-              <>
-                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-cyan-900/60 bg-black shadow-inner">
-                  <iframe
-                    src={playerState.ytEmbedUrl}
-                    title={`Ultron Player - ${playerState.ytQuery}`}
-                    className="w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                </div>
-                <div className="flex items-center justify-between px-1 text-[11px] text-white/70">
-                  <span className="truncate max-w-[220px] font-medium text-cyan-200">
-                    Query: <strong className="text-white">"{playerState.ytQuery}"</strong>
-                  </span>
-                  <a
-                    href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-medium underline cursor-pointer"
-                    title="Open in YouTube Music"
-                  >
-                    <span>YouTube Music</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {/* Quick action bar */}
-            <div className="flex items-center gap-2 pt-1 border-t border-cyan-950/60">
-              <button
-                type="button"
-                onClick={() => musicPlayer.toggleDisplayMode()}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-slate-900 to-cyan-950 hover:from-slate-800 hover:to-cyan-900 border border-cyan-500/40 text-xs font-semibold text-cyan-200 shadow-md cursor-pointer transition-all active:scale-95"
-              >
-                {playerState.displayMode === 'audio' ? (
-                  <>
-                    <Film className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                    <span>Watch Video</span>
-                  </>
-                ) : (
-                  <>
-                    <Headphones className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                    <span>Audio Visualizer Mode</span>
-                  </>
-                )}
-              </button>
-
-              {playerState.alternateVideoIds && playerState.alternateVideoIds.length > 0 && (
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
                 <button
                   type="button"
-                  onClick={() => musicPlayer.tryNextVideo()}
-                  className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 cursor-pointer transition-all active:scale-95"
-                  title="Try next video version (e.g. lyrics/audio upload)"
+                  onClick={() => musicPlayer.toggleDisplayMode()}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3 text-cyan-400" />
-                  <span>Next Video</span>
+                  {playerState.displayMode === 'audio' ? (
+                    <>
+                      <Film className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span>Watch Video</span>
+                    </>
+                  ) : (
+                    <>
+                      <Headphones className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span>Audio Visualizer</span>
+                    </>
+                  )}
                 </button>
-              )}
+
+                {playerState.alternateVideoIds && playerState.alternateVideoIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => musicPlayer.tryNextVideo()}
+                    className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Try alternate video version"
+                  >
+                    <RefreshCw className="w-3 h-3 text-slate-400" />
+                    <span>Next Version</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-6 gap-3 rounded-xl border border-slate-800 bg-slate-900/60 aspect-video text-center">
+              <Music className="w-7 h-7 text-slate-400" />
+              <p className="text-xs text-slate-300">
+                Media player ready for <strong>"{playerState.ytQuery}"</strong>
+              </p>
+              <a
+                href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-950 hover:bg-slate-200 text-xs font-medium shadow-sm transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Launch YouTube Music</span>
+              </a>
+            </div>
+          )
         ) : (
-          <div className="flex flex-col items-center justify-center p-6 gap-3 rounded-xl border border-cyan-900/50 bg-black/80 aspect-video text-center">
-            <Music className="w-8 h-8 text-cyan-400" />
-            <p className="text-xs text-white/80">
-              Media player ready for <strong>"{playerState.ytQuery}"</strong>
-            </p>
-            <a
-              href={playerState.musicUrl || `https://music.youtube.com/search?q=${encodeURIComponent(playerState.ytQuery)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-900/40"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Launch on YouTube Music</span>
-            </a>
-          </div>
-        )
-      ) : (
-        <div className="flex flex-col gap-3">
-          {/* Vinyl Disc & Track Info */}
-          <div className="flex items-center gap-3.5 p-2 rounded-xl bg-slate-900/70 border border-cyan-900/30">
-            <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-slate-950 border-2 border-cyan-500/40 shadow-lg shrink-0 overflow-hidden">
-              <Disc className={`w-8 h-8 text-cyan-400 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '3.5s' }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-cyan-400/80 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+          /* Local / Curated Audio Source */
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm">
+              <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 shadow-md shrink-0 overflow-hidden">
+                <Disc className={`w-7 h-7 text-slate-300 ${playerState.isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '3.5s' }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200 border border-black/60 shadow-sm" />
+                </div>
+              </div>
+
+              <div className="flex flex-col overflow-hidden flex-1">
+                <span className="text-sm font-semibold text-white truncate tracking-tight">
+                  {playerState.currentTrack?.title || 'Unknown Track'}
+                </span>
+                <span className="text-xs text-slate-400 truncate">
+                  {playerState.currentTrack?.artist || 'Ultron AI'}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono truncate">
+                  {playerState.currentTrack?.genre || 'Audio Stream'}
+                </span>
+              </div>
+
+              <div className="flex items-end gap-1 h-5 px-1 shrink-0">
+                <span className={`w-0.5 rounded-full bg-slate-400 ${playerState.isPlaying ? 'animate-bounce h-4' : 'h-1'}`} style={{ animationDuration: '0.6s' }} />
+                <span className={`w-0.5 rounded-full bg-white ${playerState.isPlaying ? 'animate-bounce h-5' : 'h-2'}`} style={{ animationDuration: '0.45s', animationDelay: '0.1s' }} />
+                <span className={`w-0.5 rounded-full bg-slate-300 ${playerState.isPlaying ? 'animate-bounce h-3' : 'h-1'}`} style={{ animationDuration: '0.7s', animationDelay: '0.2s' }} />
+                <span className={`w-0.5 rounded-full bg-slate-200 ${playerState.isPlaying ? 'animate-bounce h-4.5' : 'h-2'}`} style={{ animationDuration: '0.5s', animationDelay: '0.15s' }} />
+                <span className={`w-0.5 rounded-full bg-slate-400 ${playerState.isPlaying ? 'animate-bounce h-3.5' : 'h-1'}`} style={{ animationDuration: '0.65s', animationDelay: '0.25s' }} />
               </div>
             </div>
 
-            <div className="flex flex-col overflow-hidden flex-1">
-              <span className="text-sm font-bold text-white truncate tracking-wide">
-                {playerState.currentTrack?.title || 'Unknown Track'}
-              </span>
-              <span className="text-xs text-cyan-300/80 truncate">
-                {playerState.currentTrack?.artist || 'Ultron AI'}
-              </span>
-              <span className="text-[10px] text-white/40 truncate">
-                {playerState.currentTrack?.genre || 'Audio Stream'}
-              </span>
-            </div>
-
-            {/* Equalizer Frequency Waves */}
-            <div className="flex items-end gap-1 h-6 px-1 shrink-0">
-              <span className={`w-1 rounded-full bg-cyan-400 ${playerState.isPlaying ? 'animate-bounce h-5' : 'h-1'}`} style={{ animationDuration: '0.6s' }} />
-              <span className={`w-1 rounded-full bg-sky-400 ${playerState.isPlaying ? 'animate-bounce h-6' : 'h-2'}`} style={{ animationDuration: '0.45s', animationDelay: '0.1s' }} />
-              <span className={`w-1 rounded-full bg-teal-400 ${playerState.isPlaying ? 'animate-bounce h-3.5' : 'h-1'}`} style={{ animationDuration: '0.7s', animationDelay: '0.2s' }} />
-              <span className={`w-1 rounded-full bg-cyan-300 ${playerState.isPlaying ? 'animate-bounce h-5.5' : 'h-2'}`} style={{ animationDuration: '0.5s', animationDelay: '0.15s' }} />
-              <span className={`w-1 rounded-full bg-blue-400 ${playerState.isPlaying ? 'animate-bounce h-4' : 'h-1'}`} style={{ animationDuration: '0.65s', animationDelay: '0.25s' }} />
-            </div>
+            <SeekSlider
+              currentTime={playerState.currentTime}
+              duration={playerState.duration}
+              onSeek={(secs) => musicPlayer.seek(secs)}
+            />
           </div>
+        )}
+      </div>
 
-          {/* High-Precision Interactive Progress Seekbar */}
-          <SeekSlider
-            currentTime={playerState.currentTime}
-            duration={playerState.duration}
-            onSeek={(secs) => musicPlayer.seek(secs)}
-            accent="cyan"
-          />
-        </div>
-      )}
-
-      {/* Control Buttons Bar */}
-      <div className="flex items-center justify-between pt-1 border-t border-cyan-900/30">
+      {/* Bottom Controls Toolbar Bar */}
+      <div className="p-3 bg-slate-950/95 backdrop-blur-md border-t border-white/10 flex items-center justify-between gap-2 flex-shrink-0">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => musicPlayer.toggleMute()}
-            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             title={playerState.isMuted ? 'Unmute' : 'Mute'}
           >
-            {playerState.isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
+            {playerState.isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
           </button>
           <input
             type="range"
@@ -497,17 +475,17 @@ export default function MusicPlayer() {
             step="0.05"
             value={playerState.isMuted ? 0 : playerState.volume}
             onChange={(e) => musicPlayer.setVolume(Number(e.target.value))}
-            className="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+            className="w-16 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white"
             title="Volume"
           />
         </div>
 
         {/* Center Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {playerState.sourceType === 'audio' && (
             <button
               onClick={() => musicPlayer.prev()}
-              className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors active:scale-95 cursor-pointer"
               title="Previous Track"
             >
               <SkipBack className="w-4 h-4" />
@@ -516,20 +494,20 @@ export default function MusicPlayer() {
 
           <button
             onClick={() => musicPlayer.togglePlay()}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer"
+            className="w-9 h-9 rounded-full bg-white text-slate-950 hover:bg-slate-200 active:scale-95 transition-all flex items-center justify-center shadow-md cursor-pointer"
             title={playerState.isPlaying ? 'Pause' : 'Play'}
           >
             {playerState.isPlaying ? (
-              <Pause className="w-5 h-5 fill-current" />
+              <Pause className="w-4 h-4 fill-current" />
             ) : (
-              <Play className="w-5 h-5 fill-current translate-x-0.5" />
+              <Play className="w-4 h-4 fill-current translate-x-0.5" />
             )}
           </button>
 
           {playerState.sourceType === 'audio' && (
             <button
               onClick={() => musicPlayer.next()}
-              className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors active:scale-95 cursor-pointer"
               title="Next Track"
             >
               <SkipForward className="w-4 h-4" />
@@ -537,7 +515,7 @@ export default function MusicPlayer() {
           )}
         </div>
 
-        {/* Switch Stream Mode Button */}
+        {/* Source Mode Toggle */}
         <button
           onClick={() => {
             if (playerState.sourceType === 'audio') {
@@ -546,10 +524,10 @@ export default function MusicPlayer() {
               musicPlayer.playSong('');
             }
           }}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/40 text-[10px] font-semibold text-cyan-300 hover:text-white transition-all cursor-pointer"
-          title="Switch playback mode"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-[11px] font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+          title="Switch playback source"
         >
-          <Radio className="w-3 h-3 text-cyan-400" />
+          <Radio className="w-3 h-3 text-slate-400" />
           <span>{playerState.sourceType === 'audio' ? 'YouTube' : 'Curated'}</span>
         </button>
       </div>
