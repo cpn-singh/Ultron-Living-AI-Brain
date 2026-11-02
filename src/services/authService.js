@@ -4,6 +4,8 @@
  * across Web Browser & Electron .exe Desktop Environment.
  */
 
+export const CLOUD_BACKEND_URL = 'https://ultron-living-ai-brain.vercel.app';
+
 export function isLocalEnvironment() {
   if (typeof window === 'undefined') return true;
   const h = (window.location.hostname || '').toLowerCase();
@@ -27,12 +29,12 @@ export function getBackendUrl() {
     const hostname = window.location.hostname || '127.0.0.1';
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
 
-    // If running locally (dev server 5173 or local network), Python backend runs on port 8000
+    // If running in Electron desktop or dev server (5173), Python backend runs on port 8000
     if (isLocalEnvironment()) {
       return `${protocol}//${hostname}:8000`;
     }
 
-    // On deployed cloud platforms (e.g. Vercel), route through relative origin (/api/...)
+    // On deployed cloud platforms (e.g. Vercel), route through relative origin
     return window.location.origin;
   }
   return 'http://127.0.0.1:8000';
@@ -62,18 +64,29 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
 }
 
 export async function checkDbStatus() {
+  const backendUrl = getBackendUrl();
   try {
-    const res = await fetchWithTimeout(`${getBackendUrl()}/api/db/status`, {
+    const res = await fetchWithTimeout(`${backendUrl}/api/db/status`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
     }, 2500);
     if (res.ok) {
       return await res.json();
     }
-    return { success: false, engine: 'Offline', connected: false, error: `HTTP ${res.status}` };
-  } catch (err) {
-    return { success: false, engine: 'Offline', connected: false, error: err.message };
+  } catch (err) {}
+
+  // Cloud fallback check
+  if (backendUrl !== CLOUD_BACKEND_URL) {
+    try {
+      const res = await fetchWithTimeout(`${CLOUD_BACKEND_URL}/api/db/status`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      }, 2500);
+      if (res.ok) return await res.json();
+    } catch (e) {}
   }
+
+  return { success: false, engine: 'Offline', connected: false };
 }
 
 export async function signUp({ name, email, password, passcode }) {
@@ -104,12 +117,15 @@ export async function signUp({ name, email, password, passcode }) {
     };
   };
 
+  const payload = JSON.stringify({ name: cleanName, email: cleanEmail, password, passcode });
   const backendUrl = getBackendUrl();
+
+  // 1. Try primary configured backend
   try {
     const res = await fetchWithTimeout(`${backendUrl}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: cleanName, email: cleanEmail, password, passcode }),
+      body: payload,
     }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
@@ -125,10 +141,40 @@ export async function signUp({ name, email, password, passcode }) {
       }
       return data;
     }
-    return { success: false, message: data.message || 'Registration failed.' };
-  } catch (err) {
-    return createLocalSession();
+    if (data && data.message && res.status === 409) {
+      return { success: false, message: data.message };
+    }
+  } catch (err) {}
+
+  // 2. Try Vercel Cloud API if running in Electron / local and primary failed
+  if (backendUrl !== CLOUD_BACKEND_URL) {
+    try {
+      const res = await fetchWithTimeout(`${CLOUD_BACKEND_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }, 3500);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.token) localStorage.setItem('ultron_token', data.token);
+        if (data.user) {
+          const fullUser = {
+            ...data.user,
+            authenticatedAt: new Date().toISOString(),
+            mode: 'email'
+          };
+          localStorage.setItem('ultron_user', JSON.stringify(fullUser));
+          window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: fullUser } }));
+        }
+        return data;
+      }
+      if (data && data.message) {
+        return { success: false, message: data.message };
+      }
+    } catch (e) {}
   }
+
+  return createLocalSession();
 }
 
 export async function signIn({ email, password }) {
@@ -162,12 +208,15 @@ export async function signIn({ email, password }) {
     };
   };
 
+  const payload = JSON.stringify({ email: cleanEmail, password });
   const backendUrl = getBackendUrl();
+
+  // 1. Try primary configured backend
   try {
     const res = await fetchWithTimeout(`${backendUrl}/api/auth/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanEmail, password }),
+      body: payload,
     }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
@@ -183,10 +232,37 @@ export async function signIn({ email, password }) {
       }
       return data;
     }
-    return { success: false, message: data.message || 'Invalid email or password.' };
-  } catch (err) {
-    return createLocalSession();
+  } catch (err) {}
+
+  // 2. Try Vercel Cloud API if running in Electron / local
+  if (backendUrl !== CLOUD_BACKEND_URL) {
+    try {
+      const res = await fetchWithTimeout(`${CLOUD_BACKEND_URL}/api/auth/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }, 3500);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.token) localStorage.setItem('ultron_token', data.token);
+        if (data.user) {
+          const fullUser = {
+            ...data.user,
+            authenticatedAt: new Date().toISOString(),
+            mode: 'email'
+          };
+          localStorage.setItem('ultron_user', JSON.stringify(fullUser));
+          window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: fullUser } }));
+        }
+        return data;
+      }
+      if (data && data.message) {
+        return { success: false, message: data.message };
+      }
+    } catch (e) {}
   }
+
+  return createLocalSession();
 }
 
 export async function signInPasscode(passcode) {
@@ -212,12 +288,14 @@ export async function signInPasscode(passcode) {
     return { success: false, message: 'Invalid passcode.' };
   };
 
+  const payload = JSON.stringify({ passcode: cleanPasscode });
   const backendUrl = getBackendUrl();
+
   try {
     const res = await fetchWithTimeout(`${backendUrl}/api/auth/passcode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode: cleanPasscode }),
+      body: payload,
     }, 3500);
     const data = await res.json();
     if (res.ok && data.success) {
@@ -233,10 +311,33 @@ export async function signInPasscode(passcode) {
       }
       return data;
     }
-    return { success: false, message: data.message || 'Invalid passcode.' };
-  } catch (err) {
-    return checkPasscodeFallback();
+  } catch (err) {}
+
+  if (backendUrl !== CLOUD_BACKEND_URL) {
+    try {
+      const res = await fetchWithTimeout(`${CLOUD_BACKEND_URL}/api/auth/passcode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      }, 3500);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.token) localStorage.setItem('ultron_token', data.token);
+        if (data.user) {
+          const fullUser = {
+            ...data.user,
+            authenticatedAt: new Date().toISOString(),
+            mode: 'passcode'
+          };
+          localStorage.setItem('ultron_user', JSON.stringify(fullUser));
+          window.dispatchEvent(new CustomEvent('ultron-auth-change', { detail: { user: fullUser } }));
+        }
+        return data;
+      }
+    } catch (e) {}
   }
+
+  return checkPasscodeFallback();
 }
 
 export function getCurrentUser() {

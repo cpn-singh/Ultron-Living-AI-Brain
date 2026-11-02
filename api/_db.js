@@ -6,10 +6,16 @@ const { Pool } = pg;
 let pool = null;
 let tablesInitialized = false;
 
+const DEFAULT_SUPABASE_URL = 'postgresql://postgres.aubylaqaerlposhzfzkh:aRrCeQDBiz9gL8lY@aws-0-eu-west-1.pooler.supabase.com:5432/postgres';
+
 export function getPool() {
-  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || null;
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || DEFAULT_SUPABASE_URL;
   if (!connectionString) {
     return null;
+  }
+  // Auto-heal Supabase IPv6 direct domain to IPv4 connection pooler
+  if (connectionString.includes('db.aubylaqaerlposhzfzkh.supabase.co')) {
+    connectionString = connectionString.replace('db.aubylaqaerlposhzfzkh.supabase.co', 'aws-0-eu-west-1.pooler.supabase.com');
   }
   if (!pool) {
     pool = new Pool({

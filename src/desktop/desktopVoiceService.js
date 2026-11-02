@@ -95,6 +95,9 @@ class DesktopVoiceEngine {
         this.isRecording = false;
 
         const clean = dedupeTranscript(res?.transcript || '');
+        if (clean && this.callbacks && this.callbacks.onCommand) {
+          try { this.callbacks.onCommand(clean); } catch (e) {}
+        }
         if (this.manualResolve) {
           this.manualResolve({ transcript: clean, error: res?.error || null });
           this.manualResolve = null;
@@ -115,6 +118,9 @@ class DesktopVoiceEngine {
       if (res.ok) {
         const data = await res.json();
         const clean = dedupeTranscript(data?.transcript || '');
+        if (clean && this.callbacks && this.callbacks.onCommand) {
+          try { this.callbacks.onCommand(clean); } catch (e) {}
+        }
         this.stopVisualEqualizer();
         this.setState('idle');
         this.isRecording = false;
