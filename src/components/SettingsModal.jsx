@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, Key, Cpu, Mic, Shield, Sliders, CheckCircle2, Volume2, Sparkles, RefreshCw, User, Globe, Database } from 'lucide-react';
+import { X, CheckCircle2, RefreshCw } from 'lucide-react';
 import { VOICE_OPTIONS, testVoice } from '../services/voiceTtsService';
 import { testNvidiaConnection, testGeminiConnection } from '../services/aiService';
-import { checkDbStatus, getBackendUrl } from '../services/authService';
+import { checkDbStatus } from '../services/authService';
 
 export default function SettingsModal({ onClose }) {
   const [orbitName, setOrbitName] = useState(() => {
@@ -60,11 +60,11 @@ export default function SettingsModal({ onClose }) {
     window.dispatchEvent(new CustomEvent('ultron-speech-lang-change', { detail: { lang: speechLang } }));
     
     window.dispatchEvent(new CustomEvent('ultron-name-update', { detail: { name: cleanName } }));
-    setStatusMsg('Settings & Database sync configuration updated!');
+    setStatusMsg('Settings updated successfully');
     setTimeout(() => {
       setStatusMsg('');
       onClose();
-    }, 1200);
+    }, 900);
   };
 
   const handleNameChange = (val) => {
@@ -73,63 +73,64 @@ export default function SettingsModal({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pt-14 animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-lg p-6 rounded-2xl relative flex flex-col gap-4 border border-cyan-500/40 max-h-[90vh] overflow-y-auto bg-zinc-950/95 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 pt-14 select-none">
+      <div className="w-full max-w-lg p-6 rounded-2xl relative flex flex-col gap-4 border border-white/10 max-h-[90vh] overflow-y-auto bg-slate-900/95 backdrop-blur-2xl shadow-2xl text-slate-100">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+          className="absolute top-4 right-4 p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          aria-label="Close"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-2 border-b border-cyan-900/40 pb-3">
-          <Sliders className="w-5 h-5 text-cyan-400 animate-pulse" />
-          <div>
-            <h2 className="text-lg font-bold text-cyan-300">ULTRON Swarm Core Settings</h2>
-            <p className="text-xs text-slate-400">Configure operator identity, inference engines, & speech synthesis.</p>
-          </div>
+        {/* Modal Header */}
+        <div className="flex flex-col gap-1 border-b border-white/10 pb-3">
+          <h2 className="text-base font-semibold tracking-tight text-white">Settings</h2>
+          <p className="text-xs text-slate-400">Configure operator identity, inference engines, and speech synthesis.</p>
         </div>
 
         {statusMsg && (
-          <div className="p-2.5 bg-emerald-950/50 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+          <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {statusMsg}
           </div>
         )}
 
         {/* OPERATOR ORBIT IDENTITY SECTION */}
-        <div className="p-3 bg-black/60 border border-cyan-900/60 rounded-xl flex flex-col gap-2 shadow-inner">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span className="flex items-center gap-1.5">
-              <User className="w-4 h-4 text-cyan-400" /> 3D ORBIT OPERATOR NAME
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col gap-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">3D Orbit Operator Name</span>
+            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-200">
+              Badge
             </span>
-            <span className="text-[10px] text-cyan-400/80 font-mono">Rotating Satellite Badge</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            Your name floats in neon holographic typography on the rotating 3D orbit circle around the atom.
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Your name floating on the rotating 3D orbit circle around the atom.
           </p>
           <input
             type="text"
             value={orbitName}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="e.g. SHIV"
-            className="w-full bg-slate-900/90 border border-cyan-700/60 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono tracking-wider uppercase font-bold"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 font-mono tracking-wider uppercase font-bold transition-colors"
           />
         </div>
 
         {/* ONLINE AI Section */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span>ONLINE AI ENGINES & FRONTIER MODELS</span>
-            <span className="text-[10px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active 2026 Fleet</span>
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">Inference Engines & Models</span>
+            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-200">
+              Active Fleet
+            </span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-cyan-300 font-mono">PRIMARY AI INFERENCE ENGINE</label>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-slate-300">Primary Inference Engine</label>
               <select
                 value={activeModel}
                 onChange={(e) => setActiveModel(e.target.value)}
-                className="bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono"
+                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-500 font-sans transition-colors"
               >
                 <option value="gemini-3.8-flash">Google Gemini 3.8 Flash (High-Speed & Reasoning)</option>
                 <option value="gemini-3.6-flash">Google Gemini 3.6 Flash (Stable Multimodal)</option>
@@ -139,11 +140,11 @@ export default function SettingsModal({ onClose }) {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] text-cyan-300 font-mono">GOOGLE GEMINI API KEY (PRIMARY)</label>
+                <label className="text-xs font-medium text-slate-300">Google Gemini API Key</label>
                 {geminiStatus && (
-                  <span className={`text-[10px] font-mono ${geminiStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span className={`text-[11px] font-mono ${geminiStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {geminiStatus}
                   </span>
                 )}
@@ -156,8 +157,8 @@ export default function SettingsModal({ onClose }) {
                     setGeminiKey(e.target.value);
                     setGeminiStatus('');
                   }}
-                  placeholder="Gemini API Key (AIzaSy...)"
-                  className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 font-mono focus:outline-none focus:border-cyan-500"
+                  placeholder="AIzaSy..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-slate-500 transition-colors"
                 />
                 <button
                   type="button"
@@ -169,23 +170,19 @@ export default function SettingsModal({ onClose }) {
                     setGeminiTesting(false);
                     setGeminiStatus(res.message);
                   }}
-                  className="px-3 py-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/60 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                   title="Test Gemini API Connection"
                 >
-                  {geminiTesting ? (
-                    <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
-                  ) : (
-                    <span>Test</span>
-                  )}
+                  {geminiTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-300" /> : 'Test'}
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] text-cyan-300 font-mono">NVIDIA NIM API KEY (FALLBACK / DEEPSEEK)</label>
+                <label className="text-xs font-medium text-slate-300">NVIDIA NIM API Key</label>
                 {nvidiaStatus && (
-                  <span className={`text-[10px] font-mono ${nvidiaStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span className={`text-[11px] font-mono ${nvidiaStatus.includes('Connected') ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {nvidiaStatus}
                   </span>
                 )}
@@ -198,8 +195,8 @@ export default function SettingsModal({ onClose }) {
                     setNvidiaKey(e.target.value);
                     setNvidiaStatus('');
                   }}
-                  placeholder="NVIDIA NIM API Key (nvapi-...)"
-                  className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-cyan-500"
+                  placeholder="nvapi-..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-slate-500 transition-colors"
                 />
                 <button
                   type="button"
@@ -211,14 +208,10 @@ export default function SettingsModal({ onClose }) {
                     setNvidiaTesting(false);
                     setNvidiaStatus(res.message);
                   }}
-                  className="px-3 py-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-800/60 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                   title="Test NVIDIA NIM Connection"
                 >
-                  {nvidiaTesting ? (
-                    <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
-                  ) : (
-                    <span>Test</span>
-                  )}
+                  {nvidiaTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-300" /> : 'Test'}
                 </button>
               </div>
             </div>
@@ -226,27 +219,29 @@ export default function SettingsModal({ onClose }) {
         </div>
 
         {/* VOICE (TTS) Section */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-cyan-400" /> ULTRON VOICE (TTS)</span>
-            <span className="text-[10px] text-emerald-400 font-mono">Natural Neural Engine</span>
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">Voice & Speech (TTS)</span>
+            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-200">
+              Neural Audio
+            </span>
           </div>
 
           {/* Auto Speak Toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-200">Auto Speak Responses</span>
-              <p className="text-[10px] text-slate-400">Speak AI responses automatically with human-like studio voices</p>
+              <span className="text-xs font-medium text-slate-200">Auto Speak Responses</span>
+              <p className="text-xs text-slate-400">Speak AI replies aloud with neural studio voices</p>
             </div>
             <button
               type="button"
               onClick={() => setTtsEnabled(!ttsEnabled)}
-              className={`w-11 h-6 rounded-full p-1 transition-all duration-300 cursor-pointer ${
-                ttsEnabled ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'
+              className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+                ttsEnabled ? 'bg-white' : 'bg-slate-800'
               }`}
             >
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                ttsEnabled ? 'translate-x-5' : 'translate-x-0'
+              <div className={`w-5 h-5 rounded-full transition-transform ${
+                ttsEnabled ? 'translate-x-5 bg-slate-950' : 'translate-x-0 bg-slate-400'
               }`} />
             </button>
           </div>
@@ -255,7 +250,7 @@ export default function SettingsModal({ onClose }) {
             <select
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              className="flex-1 bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-sans"
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-500 font-sans transition-colors"
             >
               {Object.entries(VOICE_OPTIONS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
@@ -265,15 +260,15 @@ export default function SettingsModal({ onClose }) {
             <button
               type="button"
               onClick={() => testVoice(selectedVoice)}
-              className="px-3 py-2 rounded-xl text-xs text-cyan-200 bg-cyan-950/50 hover:bg-cyan-900/50 border border-cyan-700/50 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-2 rounded-lg text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Volume2 className="w-4 h-4 text-cyan-400" /> Test
+              Test
             </button>
           </div>
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-xs text-slate-300">Voice Speed</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <input
                 type="range"
                 min="0.5"
@@ -281,42 +276,44 @@ export default function SettingsModal({ onClose }) {
                 step="0.1"
                 value={voiceSpeed}
                 onChange={(e) => setVoiceSpeed(e.target.value)}
-                className="accent-cyan-400 w-28"
+                className="accent-white w-28 cursor-pointer"
               />
-              <span className="text-xs font-mono text-cyan-300">{voiceSpeed}x</span>
+              <span className="text-xs font-mono font-semibold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                {voiceSpeed}x
+              </span>
             </div>
           </div>
         </div>
 
         {/* HUMAN COMPANION EXPERIENCE Toggle */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex items-center justify-between">
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> HUMAN COMPANION EXPERIENCE
+            <div className="text-xs font-semibold text-white">
+              Human Companion Experience
             </div>
-            <div className="text-[10px] text-slate-400">Living presence, acoustic felt chimes & conversational voice</div>
+            <div className="text-xs text-slate-400">Living presence, acoustic chimes, and conversational pacing</div>
           </div>
 
           <button
             type="button"
             onClick={() => setHumanCompanion(!humanCompanion)}
-            className={`w-11 h-6 rounded-full p-1 transition-all duration-300 ${
-              humanCompanion ? 'bg-emerald-500' : 'bg-zinc-800'
+            className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+              humanCompanion ? 'bg-white' : 'bg-slate-800'
             }`}
           >
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-              humanCompanion ? 'translate-x-5' : 'translate-x-0'
+            <div className={`w-5 h-5 rounded-full transition-transform ${
+              humanCompanion ? 'translate-x-5 bg-slate-950' : 'translate-x-0 bg-slate-400'
             }`} />
           </button>
         </div>
 
         {/* HEY ULTRON WAKE WORD DETECTION Toggle */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex items-center justify-between">
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-              <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" /> "HEY ULTRON" WAKE WORD DETECTION
+            <div className="text-xs font-semibold text-white">
+              Wake Word Detection ("Hey Ultron")
             </div>
-            <div className="text-[10px] text-slate-400">Say "Hey Ultron" or "Ultron" anytime to immediately activate voice listening</div>
+            <div className="text-xs text-slate-400">Activate voice listening hands-free</div>
           </div>
 
           <button
@@ -327,102 +324,100 @@ export default function SettingsModal({ onClose }) {
               localStorage.setItem('ultron_wake_word', nextVal ? 'true' : 'false');
               window.dispatchEvent(new CustomEvent('ultron-wake-word-toggle', { detail: { enabled: nextVal } }));
             }}
-            className={`w-11 h-6 rounded-full p-1 transition-all duration-300 ${
-              wakeWord ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'
+            className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+              wakeWord ? 'bg-white' : 'bg-slate-800'
             }`}
           >
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-              wakeWord ? 'translate-x-5' : 'translate-x-0'
+            <div className={`w-5 h-5 rounded-full transition-transform ${
+              wakeWord ? 'translate-x-5 bg-slate-950' : 'translate-x-0 bg-slate-400'
             }`} />
           </button>
         </div>
 
         {/* VOICE INPUT ACCENT & LANGUAGE */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span className="flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-cyan-400" /> SPEECH RECOGNITION ACCENT & LANGUAGE
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col gap-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">Speech Recognition Language</span>
+            <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-200">
+              Indian English
             </span>
-            <span className="text-[10px] text-emerald-400 font-mono">Indian English Default</span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            Optimized for Indian English accents, Hinglish (mixed Hindi-English), and Hindi recognition.
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Optimized for Indian English accents, Hinglish, and Hindi recognition.
           </p>
           <select
             value={speechLang}
             onChange={(e) => setSpeechLang(e.target.value)}
-            className="w-full bg-black/90 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-sans"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-500 font-sans transition-colors"
           >
-            <option value="en-IN">🇮🇳 English (India) — Indian Accents & Hinglish (Recommended)</option>
-            <option value="hi-IN">🇮🇳 हिन्दी (Hindi - India)</option>
-            <option value="en-US">🇺🇸 English (United States)</option>
-            <option value="en-GB">🇬🇧 English (United Kingdom)</option>
+            <option value="en-IN">English (India) — Indian Accents & Hinglish</option>
+            <option value="hi-IN">हिन्दी (Hindi - India)</option>
+            <option value="en-US">English (United States)</option>
+            <option value="en-GB">English (United Kingdom)</option>
           </select>
         </div>
 
         {/* POSTGRESQL DATABASE & .EXE SYNC CONFIGURATION */}
-        <div className="p-3 bg-black/60 border border-cyan-950 rounded-xl flex flex-col gap-2.5">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
-            <span className="flex items-center gap-1.5">
-              <Database className="w-4 h-4 text-cyan-400" /> POSTGRESQL DATABASE & .EXE SYNC
-            </span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+        <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-white">PostgreSQL & Desktop Sync</span>
+            <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md border ${
               dbStatus?.connected
                 ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40'
-                : 'text-cyan-300 bg-cyan-950/60 border-cyan-500/40'
+                : 'text-slate-300 bg-slate-800 border-slate-700'
             }`}>
               {dbStatus?.engine || 'Detecting...'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-relaxed">
-            Persists logged-in user profiles, credentials, and synchronized chat history between your Web Browser and the compiled .exe Desktop software.
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Persists logged-in user credentials and synchronizes chat history between web and the .exe desktop software.
           </p>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] text-cyan-300 font-mono">BACKEND API / DATABASE SYNC HOST</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-slate-300">Backend API Host</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={customBackendUrl}
                 onChange={(e) => setCustomBackendUrl(e.target.value)}
                 placeholder="http://127.0.0.1:8000 (Default Local Engine)"
-                className="flex-1 bg-black/80 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 font-mono focus:outline-none focus:border-cyan-500"
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-slate-500 transition-colors"
               />
               <button
                 type="button"
                 disabled={dbLoading}
                 onClick={handleTestDb}
-                className="px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-cyan-300 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${dbLoading ? 'animate-spin text-cyan-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${dbLoading ? 'animate-spin text-slate-300' : ''}`} />
                 <span>Test DB</span>
               </button>
             </div>
             {dbStatus && (
-              <div className="text-[10px] font-mono text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 bg-slate-900/50 p-2 rounded-lg border border-white/5">
-                <span>Engine: <strong className={dbStatus.connected ? 'text-emerald-400' : 'text-cyan-400'}>{dbStatus.engine}</strong></span>
-                <span>• Host: <strong>{dbStatus.host || 'localhost'}</strong></span>
-                <span>• DB: <strong>{dbStatus.database || 'ultron_db'}</strong></span>
-                <span>• Users: <strong className="text-cyan-300">{dbStatus.userCount ?? 0}</strong></span>
-                <span>• Chats: <strong className="text-cyan-300">{dbStatus.chatCount ?? 0}</strong></span>
+              <div className="text-[11px] font-mono text-slate-300 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                <span>Engine: <strong className={dbStatus.connected ? 'text-emerald-400' : 'text-slate-200'}>{dbStatus.engine}</strong></span>
+                <span>• Host: <strong className="text-slate-200">{dbStatus.host || 'localhost'}</strong></span>
+                <span>• DB: <strong className="text-slate-200">{dbStatus.database || 'ultron_db'}</strong></span>
+                <span>• Users: <strong className="text-white">{dbStatus.userCount ?? 0}</strong></span>
+                <span>• Chats: <strong className="text-white">{dbStatus.chatCount ?? 0}</strong></span>
               </div>
             )}
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-cyan-900/40">
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:bg-white/10"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-xl text-xs text-cyan-950 bg-cyan-400 hover:bg-cyan-300 font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] cursor-pointer"
+            className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-950 bg-white hover:bg-slate-200 transition-colors shadow-sm cursor-pointer"
           >
-            Save Settings
+            Save Changes
           </button>
         </div>
       </div>
