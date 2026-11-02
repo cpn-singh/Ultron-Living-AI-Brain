@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
+
+const isHttps = process.env.HTTPS === 'true' || process.env.VITE_HTTPS === 'true' || process.argv.includes('--https');
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    ...(isHttps ? [basicSsl()] : []),
+  ],
   base: './',
   server: {
     host: '0.0.0.0',
     port: 5173,
+    https: isHttps ? true : undefined,
     watch: {
       ignored: ['**/release/**', '**/dist/**', '**/.git/**', '**/node_modules/**'],
     },

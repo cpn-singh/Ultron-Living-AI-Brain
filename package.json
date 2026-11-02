@@ -8,6 +8,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:https": "vite --https",
+    "dev:host": "vite --host 0.0.0.0 --https",
     "dev:browser": "vite --open",
     "build": "vite build",
     "preview": "vite preview",

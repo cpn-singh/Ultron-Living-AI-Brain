@@ -328,7 +328,15 @@ export default function ChatDrawer({ activeAgent, setActiveAgent, onSwitchTab, s
     } else if (error && error !== 'No speech match found' && error !== 'no-speech' && error !== 'aborted') {
       console.warn('[ChatDrawer] Voice input ended:', error);
       if (error === 'Microphone permission denied') {
-        addMessage('ULTRON', `🎤 Microphone permission was denied. Please allow microphone access in your browser to use voice input.`, activeBotObj.name);
+        const isInsecure = typeof window !== 'undefined' && 
+          !window.isSecureContext && 
+          window.location.hostname !== 'localhost' && 
+          window.location.hostname !== '127.0.0.1';
+        if (isInsecure) {
+          addMessage('ULTRON', `🎤 **Microphone blocked by Chrome**: Android Chrome forbids microphone access over HTTP. Please access via **HTTPS** (\`https://${window.location.hostname}:5173\`) or allow this IP in \`chrome://flags/#unsafely-treat-insecure-origin-as-secure\`.`, activeBotObj.name);
+        } else {
+          addMessage('ULTRON', `🎤 Microphone permission was denied. Tap the tune/lock icon in your browser address bar to allow microphone access.`, activeBotObj.name);
+        }
       }
     }
   }, [micState, activeBotObj.name, handleSend, addMessage]);

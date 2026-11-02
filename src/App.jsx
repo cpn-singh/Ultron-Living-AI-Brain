@@ -15,6 +15,7 @@ import BenchmarkPanel from './components/BenchmarkPanel';
 import MusicPlayer from './components/MusicPlayer';
 import LoadingScreen from './components/LoadingScreen';
 import { stopSpeech } from './services/voiceTtsService';
+import { unlockAudioContext, ultronVoiceEngine } from './services/voiceService';
 import { 
   ZoomIn, ZoomOut, RotateCcw, Compass, ChevronRight, ChevronLeft, X 
 } from 'lucide-react';
@@ -30,6 +31,9 @@ export default function App() {
     return null;
   });
 
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+
   const [activeAgent, setActiveAgent] = useState('orchestrator');
   const [activeTab, setActiveTab] = useState(null);
   const [swarmPreset, setSwarmPreset] = useState(null); // 'trade' | 'code' | null
@@ -44,8 +48,10 @@ export default function App() {
     const handleAuthChange = (e) => {
       const u = e.detail?.user;
       if (u && u.email && u.mode !== 'guest') {
+        currentUserRef.current = u;
         setCurrentUser(u);
       } else {
+        currentUserRef.current = null;
         setCurrentUser(null);
         setActiveTab(null);
         stopSpeech();
@@ -69,23 +75,46 @@ export default function App() {
   }, []);
 
   const requireAuth = useCallback((actionCallback) => {
-    if (currentUser && currentUser.email && currentUser.mode !== 'guest') {
+    const user = currentUserRef.current;
+    if (user && user.email && user.mode !== 'guest') {
       if (actionCallback) actionCallback();
       return true;
     }
+    try {
+      const saved = localStorage.getItem('ultron_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.email && parsed.mode !== 'guest') {
+          currentUserRef.current = parsed;
+          setCurrentUser(parsed);
+          if (actionCallback) actionCallback();
+          return true;
+        }
+      }
+    } catch (e) {}
+
     if (actionCallback) {
       setPendingAction(() => actionCallback);
     }
     setShowAuth(true);
     return false;
-  }, [currentUser]);
+  }, []);
 
   const handleAuthenticated = useCallback((user) => {
+    currentUserRef.current = user;
     setCurrentUser(user);
     setShowAuth(false);
+    unlockAudioContext();
+    try {
+      ultronVoiceEngine.activate().catch(() => {});
+    } catch (e) {}
+
     if (pendingAction) {
-      pendingAction();
+      const action = pendingAction;
       setPendingAction(null);
+      setTimeout(() => {
+        try { action(); } catch (e) {}
+      }, 50);
     }
   }, [pendingAction]);
 

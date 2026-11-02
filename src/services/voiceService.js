@@ -90,7 +90,7 @@ export async function isVoiceAvailable() {
 /**
  * Request audio microphone permissions from the browser.
  * Uses navigator.permissions query when available.
- * CRITICAL FOR ANDROID CHROME: Never call getUserMedia here!
+ * CRITICAL FOR ANDROID CHROME: Never call getUserMedia before SpeechRecognition!
  * On Android Chrome, getUserMedia locks the hardware audio recording channel, causing Google Speech Services
  * to throw: "Speech Recognition and Synthesis from Google cannot record now as Browser is recording"
  * SpeechRecognition natively manages its own permissions dialog.
@@ -104,15 +104,21 @@ export async function requestMicrophonePermission() {
     try {
       const perm = await navigator.permissions.query({ name: 'microphone' });
       if (perm.state === 'granted') return true;
+      if (perm.state === 'denied') return false;
     } catch (e) {}
   }
 
-  // 2. Explicitly trigger browser microphone permission dialog via getUserMedia,
-  // then IMMEDIATELY stop and release all hardware tracks so Google Speech Services can record freely.
+  // On Android Chrome, Web Speech API natively prompts for permission upon recognition.start().
+  // Never invoke getUserMedia here on Android to prevent hardware record locking.
+  if (isAndroidBrowser() && isWebSpeechAvailable()) {
+    return true;
+  }
+
+  // 2. Explicitly trigger browser microphone permission dialog via getUserMedia on Desktop
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // CRITICAL: Immediately stop all tracks to release hardware recording channel
+      // Immediately stop all tracks to release hardware recording channel
       stream.getTracks().forEach(track => track.stop());
       return true;
     } catch (err) {
@@ -474,9 +480,9 @@ class UltronContinuousVoiceEngine {
     try {
       const recognition = new SpeechRecognition();
       this.recognition = recognition;
-      // Keep continuous listening enabled across platforms
-      // On modern Android Chrome, continuous = true allows hands-free wake word detection without dropping out after every phrase
-      recognition.continuous = true;
+      // Android Chrome's SpeechRecognizer does not support continuous = true reliably;
+      // also for manual mic trigger, continuous = false allows clean utterance completion.
+      recognition.continuous = !isAndroidBrowser() && !this.manualTriggerActive;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       recognition.lang = getSpeechLanguage();
@@ -488,7 +494,7 @@ class UltronContinuousVoiceEngine {
         this.latestResultsLength = 0;
         if (this.callbacks.onActiveStatus) this.callbacks.onActiveStatus(true);
         if (this.callbacks.onPermissionStatus) this.callbacks.onPermissionStatus(true);
-        console.log('[UltronVoice] Continuous automatic recognition active & listening.');
+        console.log('[UltronVoice] Recognition active & listening.');
       };
 
       recognition.onresult = (event) => {
@@ -500,11 +506,13 @@ class UltronContinuousVoiceEngine {
 
         let interim = '';
         let final = '';
+        let hasFinal = false;
 
         const startIndex = isAndroidBrowser() ? 0 : this.processedIndex;
         for (let i = startIndex; i < event.results.length; i++) {
           const res = event.results[i];
           if (res.isFinal) {
+            hasFinal = true;
             final += ' ' + res[0].transcript;
           } else {
             interim += ' ' + res[0].transcript;
@@ -528,7 +536,8 @@ class UltronContinuousVoiceEngine {
 
             if (hasWakeWord) {
               // User interrupted by addressing Ultron ("Hey Ultron ...")
-              playWakeChime();
+              unlockAudioContext();
+    playWakeChime();
               const followingCommand = extractCommandAfterWakeWord(rawSpoken);
               this.setState('listening');
               this.manualTriggerActive = false;
@@ -567,7 +576,8 @@ class UltronContinuousVoiceEngine {
         // STATE 1: IDLE (Wake word detection)
         if (this.state === 'idle') {
           if (WAKE_WORD_REGEX.test(rawSpoken) || WAKE_WORD_REGEX.test(normalizedSpoken)) {
-            playWakeChime();
+            unlockAudioContext();
+    playWakeChime();
 
             const followingCommand = extractCommandAfterWakeWord(rawSpoken);
             this.setState('listening');
@@ -608,7 +618,12 @@ class UltronContinuousVoiceEngine {
           }
 
           if (cleanCommand.length > 0) {
-            this.scheduleSilenceSubmit(1100);
+            if (hasFinal || isAndroidBrowser()) {
+              // On Android Chrome or final utterance, submit promptly
+              this.scheduleSilenceSubmit(350);
+            } else {
+              this.scheduleSilenceSubmit(1100);
+            }
           } else {
             this.scheduleSilenceSubmit(3500);
           }
@@ -619,10 +634,24 @@ class UltronContinuousVoiceEngine {
         this.isStarting = false;
         // Harmless or expected events
         if (event.error === 'no-speech' || event.error === 'aborted') {
+          if (this.manualTriggerActive && event.error === 'no-speech') {
+            if (this.manualResolve) {
+              this.manualResolve({ transcript: this.currentCommandText || '', error: null });
+              this.manualResolve = null;
+              this.manualTriggerActive = false;
+            }
+          }
           return;
         }
 
         console.warn('[UltronVoice] Recognition status:', event.error);
+        if (this.manualResolve) {
+          const errorMsg = event.error === 'not-allowed' ? 'Microphone permission denied' : event.error;
+          this.manualResolve({ transcript: this.currentCommandText || '', error: errorMsg });
+          this.manualResolve = null;
+          this.manualTriggerActive = false;
+        }
+
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           console.warn('[UltronVoice] Microphone permission denied');
           this.setState('idle');
@@ -645,13 +674,25 @@ class UltronContinuousVoiceEngine {
         this.processedIndex = 0;
         this.latestResultsLength = 0;
 
-        // Auto-restart continuous recognition automatically whenever media is not playing
-        const shouldRestart = this.isEnabled && this.isActive && !this.isMediaPlaying();
+        // If user was actively speaking or manual recording finished, submit captured speech immediately!
+        if (this.state === 'listening' || this.manualTriggerActive) {
+          const hasCommand = (this.currentCommandText || '').trim().length > 0;
+          if (hasCommand) {
+            this.submitCurrentCommand();
+            return;
+          } else if (this.manualTriggerActive) {
+            this.cancelManual();
+            return;
+          }
+        }
+
+        // Auto-restart continuous recognition automatically whenever media is not playing & not in manual mode
+        const shouldRestart = this.isEnabled && this.isActive && !this.isMediaPlaying() && !this.manualTriggerActive;
 
         if (shouldRestart) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
-            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && !this.isMediaPlaying()) {
+            if (this.isEnabled && this.isActive && !this.recognition && !this.isStarting && !this.isMediaPlaying() && !this.manualTriggerActive) {
               this.start();
             }
           }, isAndroidBrowser() ? 500 : 400);
@@ -767,6 +808,7 @@ class UltronContinuousVoiceEngine {
       this.processedIndex = this.latestResultsLength;
     }
 
+    unlockAudioContext();
     playWakeChime();
 
     this.currentCommandText = '';
